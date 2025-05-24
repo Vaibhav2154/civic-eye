@@ -2,12 +2,16 @@ import 'dart:io';
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+// ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CalculatorScreen extends StatefulWidget {
+  const CalculatorScreen({super.key});
+
   @override
+  // ignore: library_private_types_in_public_api
   _CalculatorScreenState createState() => _CalculatorScreenState();
 }
 
@@ -23,6 +27,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   final supabase = Supabase.instance.client;
 
   // Configurable recording duration (in minutes)
+  // ignore: constant_identifier_names
   static const int RECORDING_DURATION_MINUTES = 10; // Increased to 10 minutes
 
   @override

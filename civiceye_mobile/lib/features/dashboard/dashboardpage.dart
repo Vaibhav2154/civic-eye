@@ -9,6 +9,7 @@ import 'package:civiceye/features/chatbot/chatbot.dart';
 import 'package:civiceye/features/dashboard/decoyCalculator.dart';
 import 'package:civiceye/features/legal_contacts/legal_contacts_page.dart';
 import 'package:civiceye/features/report_crime/report_crime.dart';
+import 'package:civiceye/features/stealth/steatlh_file_screens.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:camera/camera.dart';
@@ -181,7 +182,6 @@ class _DashboardpageState extends State<Dashboardpage> {
       final String videoDir = '${appDirectory.path}/Videos';
       await Directory(videoDir).create(recursive: true);
 
-      final String filePath = '$videoDir/${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       await _controller.startVideoRecording();
       _isRecording = true;
@@ -481,6 +481,21 @@ class _DashboardpageState extends State<Dashboardpage> {
               ),
             ),
             actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.video_call, size: 20),
+                  onPressed: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => SteatlhFileScreens())
+                  ),
+                  color: Colors.white,
+                ),
+              ),
               Container(
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
