@@ -7,6 +7,7 @@ import 'package:civiceye/features/auth/pages/loginpage.dart';
 import 'package:civiceye/features/auth/services/auth_service.dart';
 import 'package:civiceye/features/chatbot/chatbot.dart';
 import 'package:civiceye/features/dashboard/decoyCalculator.dart';
+import 'package:civiceye/features/legal_contacts/legal_contacts_page.dart';
 import 'package:civiceye/features/report_crime/report_crime.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
@@ -33,17 +34,31 @@ class _DashboardpageState extends State<Dashboardpage> {
   String crimeAlert = 'Fetching your location...';
   String nearestHospital = 'Searching...';
   String nearestFireStation = 'Searching...';
+  String nearestPoliceStation = 'Searching...';
+
   String currentName = 'User';
 
   double? latitude;
   double? longitude;
   int _selectedIndex = 0;
 
+  // Camera controller for stealth mode
+  late CameraController _controller;
+  bool _isRecording = false;
+
   @override
   void initState() {
     super.initState();
     _checkPermissions();
     getCurrentUserFullName();
+  }
+
+  @override
+  void dispose() {
+    if (_isRecording && _controller.value.isInitialized) {
+      _controller.stopVideoRecording();
+    }
+    super.dispose();
   }
 
   void logout() async {
@@ -63,10 +78,8 @@ class _DashboardpageState extends State<Dashboardpage> {
 
     switch (index) {
       case 0: // Home
-
         break;
       case 1: // Community
-
         break;
       case 2: // Report Crime
         final String? userId = authservice.getCurrentUserId();
@@ -77,8 +90,6 @@ class _DashboardpageState extends State<Dashboardpage> {
               builder: (context) => ReportCrimePage(userId: userId),
             ),
           ).then((_) {
-            // This .then() callback runs when ReportCrimePage is popped
-            // Set _selectedIndex back to Home (index 0)
             setState(() {
               _selectedIndex = 0;
             });
@@ -94,8 +105,6 @@ class _DashboardpageState extends State<Dashboardpage> {
           context,
           MaterialPageRoute(builder: (context) => ChatbotPage()),
         );
-        // Chat
-
         break;
     }
   }
@@ -133,6 +142,7 @@ class _DashboardpageState extends State<Dashboardpage> {
 
         _getNearbyPlace("hospital");
         _getNearbyPlace("fire_station");
+        _getNearbyPlace("police");
       } catch (e) {
         setState(() {
           crimeAlert = 'Failed to get location: $e';
@@ -146,52 +156,56 @@ class _DashboardpageState extends State<Dashboardpage> {
     }
   }
 
-  
+  Future<void> handleStealthMode(BuildContext context) async {
+    final statusCamera = await Permission.camera.request();
+    final statusMicrophone = await Permission.microphone.request();
 
-  late CameraController _controller;
-bool _isRecording = false;
+    if (!statusCamera.isGranted || !statusMicrophone.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Camera and Microphone permission required")),
+      );
+      return;
+    }
 
-Future<void> handleStealthMode(BuildContext context) async {
-final statusCamera = await Permission.camera.request();
-final statusMicrophone = await Permission.microphone.request();
+    try {
+      final cameras = await availableCameras();
+      final backCamera = cameras.firstWhere(
+        (cam) => cam.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
 
-if (!statusCamera.isGranted || !statusMicrophone.isGranted) {
-ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(content: Text("Camera and Microphone permission required")),
-);
-return;
-}
+      _controller = CameraController(backCamera, ResolutionPreset.medium);
+      await _controller.initialize();
+      
+      final Directory appDirectory = await getApplicationDocumentsDirectory();
+      final String videoDir = '${appDirectory.path}/Videos';
+      await Directory(videoDir).create(recursive: true);
 
-final cameras = await availableCameras();
-final backCamera = cameras.firstWhere(
-(cam) => cam.lensDirection == CameraLensDirection.back,
-orElse: () => cameras.first,
-);
+      final String filePath = '$videoDir/${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-_controller = CameraController(backCamera, ResolutionPreset.medium);
-await _controller.initialize();
-final Directory appDirectory = await getApplicationDocumentsDirectory();
-final String videoDir = '${appDirectory.path}/Videos';
-await Directory(videoDir).create(recursive: true);
+      await _controller.startVideoRecording();
+      _isRecording = true;
 
-final String filePath = '$videoDir/${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-try {
-  await _controller.startVideoRecording();
-  _isRecording = true;
-} catch (e) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text("Failed to start video recording: $e")),
-  );
-  return;
-}
-
-Navigator.push(
-  context,
-  MaterialPageRoute(builder: (context) => CalculatorScreen()),
-);
-}
-
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => CalculatorScreen()),
+      ).then((_) {
+        // Stop recording when returning from calculator
+        if (_isRecording && _controller.value.isInitialized) {
+          _controller.stopVideoRecording().then((_) {
+            _isRecording = false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Recording saved successfully")),
+            );
+          });
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to start stealth mode: $e")),
+      );
+    }
+  }
 
   Future<void> _getNearbyPlace(String type) async {
     final amenity = type;
@@ -220,8 +234,11 @@ Navigator.push(
             if (type == "hospital") {
               nearestHospital =
                   '$name (${distanceInKm.toStringAsFixed(2)} km away)';
-            } else {
+            } else if (type == "fire_station") {
               nearestFireStation =
+                  '$name (${distanceInKm.toStringAsFixed(2)} km away)';
+            } else if (type == "police") {
+              nearestPoliceStation = 
                   '$name (${distanceInKm.toStringAsFixed(2)} km away)';
             }
           });
@@ -229,8 +246,10 @@ Navigator.push(
           setState(() {
             if (type == "hospital") {
               nearestHospital = 'No hospital found nearby.';
-            } else {
+            } else if (type == "fire_station") {
               nearestFireStation = 'No fire station found nearby.';
+            } else if (type == "police") {
+              nearestPoliceStation = 'No police station found nearby.';
             }
           });
         }
@@ -283,7 +302,6 @@ Navigator.push(
     );
   }
 
-  // Custom bottom navbar item widget
   Widget _buildNavBarItem(String label, IconData icon, int index) {
     final isSelected = _selectedIndex == index;
 
@@ -314,11 +332,10 @@ Navigator.push(
               child: Icon(
                 icon,
                 color: isSelected ? Colors.white : Colors.white70,
-                size: isSelected ? 24 : 20,
+                size: isSelected ? 15 : 14,
               ),
             ),
-            const SizedBox(height: 4),
-            // Text label with gradient for selected state
+            const SizedBox(height: 2),
             isSelected
                 ? ShaderMask(
                   shaderCallback: (bounds) {
@@ -333,13 +350,13 @@ Navigator.push(
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: 10,
                     ),
                   ),
                 )
                 : Text(
                   label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
                 ),
           ],
         ),
@@ -363,6 +380,75 @@ Navigator.push(
         currentName = response['full_name'] ?? "Unknown";
       });
     }
+  }
+
+  Widget _buildEmergencyServiceItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: Colors.white54,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -402,6 +488,21 @@ Navigator.push(
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: IconButton(
+                  icon: const Icon(Icons.contact_emergency, size: 20),
+                  onPressed: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => LegalContactsPage())
+                  ),
+                  color: Colors.white,
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: IconButton(
                   icon: const Icon(Icons.logout, size: 20),
                   onPressed: logout,
                   color: Colors.white,
@@ -416,7 +517,6 @@ Navigator.push(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Greeting Section
             const SizedBox(height: 25),
 
             // SOS Section
@@ -630,12 +730,26 @@ Navigator.push(
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.withOpacity(0.2), 
+                    Colors.indigo.withOpacity(0.15)
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.1),
-                  width: 1,
+                  width: 1.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 15,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,111 +757,78 @@ Navigator.push(
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: [Colors.blue.withOpacity(0.3), Colors.lightBlue.withOpacity(0.4)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.2),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.local_hospital,
                           color: Colors.lightBlueAccent,
-                          size: 24,
+                          size: 26,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 15),
                       const Text(
                         "Emergency Services",
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 15),
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.local_hospital,
-                          color: Colors.redAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Hospital",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                nearestHospital,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 20),
+                  _buildEmergencyServiceItem(
+                    icon: Icons.local_hospital,
+                    iconColor: Colors.redAccent,
+                    title: "Hospital",
+                    value: nearestHospital,
+                    onTap: () async {
+                      final mapUrl = 'https://www.google.com/maps/search/hospital/@$latitude,$longitude';
+                      if (await canLaunchUrl(Uri.parse(mapUrl))) {
+                        await launchUrl(Uri.parse(mapUrl), mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.local_fire_department,
-                          color: Colors.orangeAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Fire Station",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                nearestFireStation,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 15),
+                  _buildEmergencyServiceItem(
+                    icon: Icons.local_fire_department,
+                    iconColor: Colors.orangeAccent,
+                    title: "Fire Station",
+                    value: nearestFireStation,
+                    onTap: () async {
+                      final mapUrl = 'https://www.google.com/maps/search/fire+station/@$latitude,$longitude';
+                      if (await canLaunchUrl(Uri.parse(mapUrl))) {
+                        await launchUrl(Uri.parse(mapUrl), mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 15),
+                  _buildEmergencyServiceItem(
+                    icon: Icons.local_police,
+                    iconColor: Colors.blueAccent,
+                    title: "Police Station",
+                    value: nearestPoliceStation,
+                    onTap: () async {
+                      final mapUrl = 'https://www.google.com/maps/search/police+station/@$latitude,$longitude';
+                      if (await canLaunchUrl(Uri.parse(mapUrl))) {
+                        await launchUrl(Uri.parse(mapUrl), mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -796,7 +877,7 @@ Navigator.push(
               ),
             ),
           ),
-        ),
+        ),  
       ),
     );
   }

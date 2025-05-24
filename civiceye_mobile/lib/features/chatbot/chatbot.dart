@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:civiceye/core/constants/api_constants.dart';
 import 'package:civiceye/core/theme/app_pallete.dart';
 import 'package:flutter/material.dart';
@@ -23,10 +24,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
   // Supabase client
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // History data
+  // History data - Fix: Changed to use chat_sessions instead of messages for history
   List<Map<String, dynamic>> _chatHistory = [];
   String? _currentChatId;
   bool _isLoadingHistory = false;
+  bool _isSendingMessage = false; // Fix: Add loading state for message sending
 
   @override
   void initState() {
@@ -36,44 +38,64 @@ class _ChatbotPageState extends State<ChatbotPage> {
   }
 
   void _initializeChat() {
-    _messages.add({
-      'text':
-          'Hello! I am your CivicEye AI assistant. How can I help you today?',
-      'isUser': false,
-      'timestamp': DateTime.now().toIso8601String(),
+    setState(() {
+      _messages.clear();
+      _messages.add({
+        'text': 'Hello! I am your Lawgic AI assistant. How can I help you today?',
+        'isUser': false,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
     });
     _createNewChatSession();
   }
 
   Future<void> _createNewChatSession() async {
     try {
-      final response =
-          await _supabase
-              .from('chat_sessions')
-              .insert({
-                'title': 'New Chat',
-                'created_at': DateTime.now().toIso8601String(),
-                'last_active_at': DateTime.now().toIso8601String(),
-              })
-              .select()
-              .single();
+      final userId = _supabase.auth.currentUser?.id;
+      
+      // Create a payload without user_id
+      final payload = {
+        'title': 'New Chat',
+        'created_at': DateTime.now().toIso8601String(),
+        'last_active_at': DateTime.now().toIso8601String(),
+        // Remove the user_id field since it doesn't exist in the schema
+      };
+      
+      final response = await _supabase
+          .from('chat_sessions')
+          .insert(payload)
+          .select()
+          .single();
 
-      _currentChatId = response['id'].toString();
+      setState(() {
+        _currentChatId = response['id'].toString();
+      });
+      
       await _loadChatHistory();
     } catch (e) {
-      print('Error creating chat session: $e');
+      log('Error creating chat session: $e');
+      // Show user-friendly error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create new chat session')),
+        );
+      }
     }
   }
 
+  // Fix: Load chat sessions (not messages) for history sidebar
   Future<void> _loadChatHistory() async {
     setState(() {
       _isLoadingHistory = true;
     });
 
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      
+      // Fix: Query chat_sessions table instead of chat_messages for history
       final response = await _supabase
           .from('chat_sessions')
-          .select('*')
+          .select('id, title, created_at, last_active_at')
           .order('last_active_at', ascending: false)
           .limit(20);
 
@@ -82,10 +104,16 @@ class _ChatbotPageState extends State<ChatbotPage> {
         _isLoadingHistory = false;
       });
     } catch (e) {
-      print('Error loading chat history: $e');
+      log('Error loading chat history: $e');
       setState(() {
         _isLoadingHistory = false;
       });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load chat history')),
+        );
+      }
     }
   }
 
@@ -99,13 +127,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
       setState(() {
         _messages.clear();
+        // Always add initial greeting
         _messages.add({
-          'text':
-              'Hello! I am your CivicEye AI assistant. How can I help you today?',
+          'text': 'Hello! I am your Lawgic AI assistant. How can I help you today?',
           'isUser': false,
           'timestamp': DateTime.now().toIso8601String(),
         });
 
+        // Add stored messages
         for (var msg in response) {
           _messages.add({
             'text': msg['message'],
@@ -117,9 +146,16 @@ class _ChatbotPageState extends State<ChatbotPage> {
       });
 
       _scrollToBottom();
-      Navigator.pop(context); // Close drawer
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // Close drawer
+      }
     } catch (e) {
-      print('Error loading chat messages: $e');
+      log('Error loading chat messages: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load chat messages')),
+        );
+      }
     }
   }
 
@@ -127,62 +163,100 @@ class _ChatbotPageState extends State<ChatbotPage> {
     if (_currentChatId == null) return;
 
     try {
-      await _supabase.from('chat_messages').insert({
-        'chat_session_id': _currentChatId,
+      // Create a payload without user_id
+      final payload = {
+        'chat_session_id': int.parse(_currentChatId!),
         'message': message,
         'is_user': isUser,
         'created_at': DateTime.now().toIso8601String(),
-      });
+        'chat_id': _generateUuid(),
+        // Remove the user_id field
+      };
+      
+      await _supabase.from('chat_messages').insert(payload);
 
       // Update last_active_at for the chat session
       await _supabase
           .from('chat_sessions')
           .update({'last_active_at': DateTime.now().toIso8601String()})
-          .eq('id', _currentChatId!);
+          .eq('id', int.parse(_currentChatId!));
 
       // Update chat title if it's the first user message
-      if (isUser && _messages.length <= 2) {
-        String title =
-            message.length > 30 ? '${message.substring(0, 30)}...' : message;
+      if (isUser && _messages.where((m) => m['isUser'] == true).length == 1) {
+        String title = message.length > 30 ? '${message.substring(0, 30)}...' : message;
         await _supabase
             .from('chat_sessions')
             .update({'title': title})
-            .eq('id', _currentChatId!);
+            .eq('id', int.parse(_currentChatId!));
       }
     } catch (e) {
-      print('Error saving message: $e');
+      log('Error saving message: $e');
     }
+  }
+
+  // Fix: Add UUID generator
+  String _generateUuid() {
+    return DateTime.now().millisecondsSinceEpoch.toString() + 
+           (1000 + (DateTime.now().microsecond % 9000)).toString();
   }
 
   Future<void> _deleteChat(String chatId) async {
     try {
-      // Delete messages first (due to foreign key constraint)
-      await _supabase
-          .from('chat_messages')
-          .delete()
-          .eq('chat_session_id', chatId);
+      log('Attempting to delete chat with ID: $chatId');
+      
+      // Make sure we have a valid integer ID
+      final int chatIdInt;
+      try {
+        chatIdInt = int.parse(chatId);
+      } catch (e) {
+        log('Invalid chat ID format: $e');
+        throw Exception('Invalid chat ID format');
+      }
 
-      // Delete chat session
-      await _supabase.from('chat_sessions').delete().eq('id', chatId);
+      // Check if messages exist for this chat
+      final messagesExist = await _supabase
+          .from('chat_messages')
+          .select('id')
+          .eq('chat_session_id', chatIdInt)
+          .limit(1);
+    
+      log('Messages exist check: ${messagesExist.length}');
+    
+      // Delete messages first (due to foreign key constraint)
+      if (messagesExist.isNotEmpty) {
+        await _supabase
+            .from('chat_messages')
+            .delete()
+            .eq('chat_session_id', chatIdInt);
+        log('Deleted messages for chat ID: $chatIdInt');
+      }
+
+      // Now delete the chat session
+      await _supabase
+          .from('chat_sessions')
+          .delete()
+          .eq('id', chatIdInt);
+      log('Deleted chat session with ID: $chatIdInt');
 
       // If current chat is deleted, create new one
       if (_currentChatId == chatId) {
-        setState(() {
-          _messages.clear();
-        });
         _initializeChat();
       }
 
       await _loadChatHistory();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chat deleted successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chat deleted successfully')),
+        );
+      }
     } catch (e) {
-      print('Error deleting chat: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error deleting chat')));
+      log('Error deleting chat: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting chat: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -194,9 +268,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
   }
 
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
+    if (_messageController.text.trim().isEmpty || _isSendingMessage) return;
 
-    String userMessage = _messageController.text;
+    String userMessage = _messageController.text.trim();
 
     setState(() {
       _messages.add({
@@ -205,11 +279,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
         'timestamp': DateTime.now().toIso8601String(),
       });
       _messageController.clear();
+      _isSendingMessage = true; // Fix: Set loading state
     });
 
     // Save user message
     await _saveChatMessage(userMessage, true);
-
     _scrollToBottom();
 
     try {
@@ -220,39 +294,40 @@ class _ChatbotPageState extends State<ChatbotPage> {
         body: json.encode({'question': userMessage}),
       );
 
+      String botAnswer;
       if (response.statusCode == 200) {
-        final botAnswer = json.decode(response.body)['answer'];
-
-        setState(() {
-          _messages.add({
-            'text': botAnswer,
-            'isUser': false,
-            'timestamp': DateTime.now().toIso8601String(),
-          });
-        });
-
-        // Save bot message
-        await _saveChatMessage(botAnswer, false);
+        final responseData = json.decode(response.body);
+        botAnswer = responseData['answer'] ?? 'No response received';
       } else {
-        final errorMsg = 'Sorry, I couldn\'t get a response. Try again later.';
-        setState(() {
-          _messages.add({
-            'text': errorMsg,
-            'isUser': false,
-            'timestamp': DateTime.now().toIso8601String(),
-          });
-        });
-        await _saveChatMessage(errorMsg, false);
+        botAnswer = 'Sorry, I couldn\'t get a response. Please try again later.';
+        log('HTTP Error: ${response.statusCode} - ${response.body}');
       }
+
+      setState(() {
+        _messages.add({
+          'text': botAnswer,
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+        _isSendingMessage = false; // Fix: Clear loading state
+      });
+
+      // Save bot message
+      await _saveChatMessage(botAnswer, false);
+      
     } catch (e) {
+      log('Error sending message: $e');
       final errorMsg = 'An error occurred. Please check your connection.';
+      
       setState(() {
         _messages.add({
           'text': errorMsg,
           'isUser': false,
           'timestamp': DateTime.now().toIso8601String(),
         });
+        _isSendingMessage = false; // Fix: Clear loading state
       });
+      
       await _saveChatMessage(errorMsg, false);
     }
 
@@ -262,7 +337,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (_scrollController.hasClients && mounted) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -272,7 +347,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     });
   }
 
-  String _formatTimestamp(String timestamp) {
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return 'Unknown';
+    
     try {
       final dateTime = DateTime.parse(timestamp);
       final now = DateTime.now();
@@ -288,6 +365,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
         return 'Just now';
       }
     } catch (e) {
+      log('Error formatting timestamp: $e');
       return 'Unknown';
     }
   }
@@ -349,10 +427,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   Icons.add_comment_outlined,
                   color: Colors.white,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _messages.clear();
-                  });
+                onPressed: _isSendingMessage ? null : () { // Fix: Disable when sending
                   _initializeChat();
                 },
               ),
@@ -386,6 +461,27 @@ class _ChatbotPageState extends State<ChatbotPage> {
               },
             ),
           ),
+          if (_isSendingMessage) // Fix: Show loading indicator
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: const Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'AI is thinking...',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
           _buildChatInput(),
         ],
       ),
@@ -438,144 +534,109 @@ class _ChatbotPageState extends State<ChatbotPage> {
               ),
             ),
             Expanded(
-              child:
-                  _isLoadingHistory
+              child: _isLoadingHistory
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : _chatHistory.isEmpty
                       ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                      : _chatHistory.isEmpty
-                      ? const Center(
-                        child: Text(
-                          'No chat history',
-                          style: TextStyle(color: Colors.white54),
-                        ),
-                      )
+                          child: Text(
+                            'No chat history',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        )
                       : ListView.builder(
-                        padding: const EdgeInsets.all(8.0),
-                        itemCount: _chatHistory.length,
-                        itemBuilder: (context, index) {
-                          final chat = _chatHistory[index];
-                          final isCurrentChat =
-                              chat['id'].toString() == _currentChatId;
+                          padding: const EdgeInsets.all(8.0),
+                          itemCount: _chatHistory.length,
+                          itemBuilder: (context, index) {
+                            final chat = _chatHistory[index];
+                            final isCurrentChat = chat['id'].toString() == _currentChatId;
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8.0),
-                            decoration: BoxDecoration(
-                              color:
-                                  isCurrentChat
-                                      ? primaryColor.withOpacity(0.3)
-                                      : Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                              border:
-                                  isCurrentChat
-                                      ? Border.all(
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8.0),
+                              decoration: BoxDecoration(
+                                color: isCurrentChat
+                                    ? primaryColor.withOpacity(0.3)
+                                    : Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: isCurrentChat
+                                    ? Border.all(
                                         color: secondaryColor,
                                         width: 1,
                                       )
-                                      : null,
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 8.0,
+                                    : null,
                               ),
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    isCurrentChat
-                                        ? secondaryColor
-                                        : primaryColor.withOpacity(0.7),
-                                child: const Icon(
-                                  Icons.chat_bubble_outline,
-                                  color: Colors.white,
-                                  size: 20,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                  vertical: 8.0,
                                 ),
-                              ),
-                              title: Text(
-                                chat['title'] ?? 'Untitled Chat',
-                                style: TextStyle(
-                                  color:
-                                      isCurrentChat
-                                          ? Colors.white
-                                          : Colors.white70,
-                                  fontWeight:
-                                      isCurrentChat
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
+                                leading: CircleAvatar(
+                                  backgroundColor: isCurrentChat
+                                      ? secondaryColor
+                                      : primaryColor.withOpacity(0.7),
+                                  child: const Icon(
+                                    Icons.chat_bubble_outline,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                _formatTimestamp(
-                                  chat['last_active_at'] ?? chat['created_at'],
+                                title: Text(
+                                  chat['title'] ?? 'Untitled Chat', // Fix: Use title instead of message
+                                  style: TextStyle(
+                                    color: isCurrentChat ? Colors.white : Colors.white70,
+                                    fontWeight: isCurrentChat ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                style: TextStyle(
-                                  color:
-                                      isCurrentChat
-                                          ? Colors.white60
-                                          : Colors.white38,
-                                  fontSize: 12,
+                                subtitle: Text(
+                                  _formatTimestamp(chat['last_active_at'] ?? chat['created_at']),
+                                  style: TextStyle(
+                                    color: isCurrentChat ? Colors.white60 : Colors.white38,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                icon: Icon(
-                                  Icons.more_vert,
-                                  color:
-                                      isCurrentChat
-                                          ? Colors.white
-                                          : Colors.white54,
-                                ),
-                                color: primaryColor,
-                                onSelected: (value) {
-                                  if (value == 'delete') {
-                                    _showDeleteConfirmation(
-                                      chat['id'].toString(),
-                                    );
-                                  }
-                                },
-                                itemBuilder:
-                                    (context) => [
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
-                                              size: 20,
-                                            ),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Delete',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                trailing: PopupMenuButton<String>(
+                                  icon: Icon(
+                                    Icons.more_vert,
+                                    color: isCurrentChat ? Colors.white : Colors.white54,
+                                  ),
+                                  color: primaryColor,
+                                  onSelected: (value) {
+                                    if (value == 'delete') {
+                                      // Log the ID to confirm it's correct
+                                      log('Selected chat ID for deletion: ${chat['id'].toString()}');
+                                      _showDeleteConfirmation(chat['id'].toString());
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete, color: Colors.red, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Delete', style: TextStyle(color: Colors.white)),
+                                        ],
                                       ),
-                                    ],
-                              ),
-                              onTap:
-                                  isCurrentChat
-                                      ? null
-                                      : () {
-                                        _loadChatMessages(
-                                          chat['id'].toString(),
-                                        );
+                                    ),
+                                  ],
+                                ),
+                                onTap: isCurrentChat
+                                    ? null
+                                    : () {
+                                        _loadChatMessages(chat['id'].toString());
                                       },
-                            ),
-                          );
-                        },
-                      ),
+                              ),
+                            );
+                          },
+                        ),
             ),
             Container(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton.icon(
                 onPressed: () {
-                  setState(() {
-                    _messages.clear();
-                  });
                   _initializeChat();
                   Navigator.pop(context);
                 },
@@ -602,37 +663,36 @@ class _ChatbotPageState extends State<ChatbotPage> {
   void _showDeleteConfirmation(String chatId) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: primaryColor,
-            title: const Text(
-              'Delete Chat',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Are you sure you want to delete this chat? This action cannot be undone.',
+      builder: (context) => AlertDialog(
+        backgroundColor: primaryColor,
+        title: const Text(
+          'Delete Chat',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this chat? This action cannot be undone.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
               style: TextStyle(color: Colors.white70),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _deleteChat(chatId);
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChat(chatId);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -656,8 +716,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
               Expanded(
                 child: TextField(
                   controller: _messageController,
+                  enabled: !_isSendingMessage, // Fix: Disable input when sending
                   decoration: InputDecoration(
-                    hintText: 'Type your civic query...',
+                    hintText: _isSendingMessage 
+                        ? 'Please wait...' 
+                        : 'Type your civic query...',
                     hintStyle: const TextStyle(
                       color: Colors.white54,
                       fontSize: 15,
@@ -705,8 +768,17 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.send_rounded, color: Colors.white),
-                  onPressed: _sendMessage,
+                  icon: _isSendingMessage
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white),
+                  onPressed: _isSendingMessage ? null : _sendMessage,
                   iconSize: 26,
                   splashRadius: 28,
                 ),
@@ -733,32 +805,25 @@ class MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
         padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
         decoration: BoxDecoration(
-          gradient:
-              isUser
-                  ? LinearGradient(
-                    colors: [primaryColor.withOpacity(0.9), primaryColor],
-                    begin: Alignment.bottomLeft,
-                    end: Alignment.topRight,
-                  )
-                  : LinearGradient(
-                    colors: [
-                      const Color.fromARGB(255, 6, 53, 182).withOpacity(0.9),
-                      secondaryColor,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+          gradient: isUser
+              ? LinearGradient(
+                  colors: [primaryColor.withOpacity(0.9), primaryColor],
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                )
+              : LinearGradient(
+                  colors: [
+                    const Color.fromARGB(255, 6, 53, 182).withOpacity(0.9),
+                    secondaryColor,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20.0),
             topRight: const Radius.circular(20.0),
-            bottomLeft:
-                isUser
-                    ? const Radius.circular(20.0)
-                    : const Radius.circular(5.0),
-            bottomRight:
-                isUser
-                    ? const Radius.circular(5.0)
-                    : const Radius.circular(20.0),
+            bottomLeft: isUser ? const Radius.circular(20.0) : const Radius.circular(5.0),
+            bottomRight: isUser ? const Radius.circular(5.0) : const Radius.circular(20.0),
           ),
           boxShadow: [
             BoxShadow(
@@ -771,7 +836,7 @@ class MessageBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        child: isUser 
+        child: isUser
             ? Text(
                 message,
                 style: const TextStyle(color: Colors.white, fontSize: 16.0),
@@ -799,15 +864,14 @@ class MessageBubble extends StatelessWidget {
                   blockquote: const TextStyle(color: Colors.orange, fontSize: 16.0, fontStyle: FontStyle.italic),
                   em: const TextStyle(color: Colors.orange, fontStyle: FontStyle.italic),
                   strong: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                  a: TextStyle(color: Colors.orange),
-                  listBullet: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                  a: const TextStyle(color: Colors.orange),
+                  listBullet: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                 ),
                 selectable: true,
                 onTapLink: (text, url, title) {
-                  // Handle link taps if needed
                   if (url != null) {
+                    log('Link tapped: $url');
                     // You can implement URL opening functionality here
-                    print('Link tapped: $url');
                   }
                 },
               ),
