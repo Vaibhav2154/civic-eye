@@ -5,6 +5,7 @@ import 'package:civiceye/core/theme/app_pallete.dart';
 import 'package:civiceye/core/utils/permission_handler.dart';
 import 'package:civiceye/features/auth/pages/loginpage.dart';
 import 'package:civiceye/features/auth/services/auth_service.dart';
+import 'package:civiceye/features/report_crime/report_crime.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:geocoding/geocoding.dart';
@@ -65,7 +66,25 @@ class _DashboardpageState extends State<Dashboardpage> {
     
         break;
       case 2: // Report Crime
-      
+          final String? userId = authservice.getCurrentUserId();
+        if (userId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReportCrimePage(userId: userId),
+            ),
+          ).then((_) {
+            // This .then() callback runs when ReportCrimePage is popped
+            // Set _selectedIndex back to Home (index 0)
+            setState(() {
+              _selectedIndex = 0;
+            });
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to report a crime.')),
+          );
+        }
         break;
       case 3: // Chat
         
