@@ -54,7 +54,9 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
+    <div className="min-h-screen bg-[#1e3b8a] overflow-hidden">
+
+
       {/* Gradient Background */}
       <div className="fixed inset-0 z-[-1]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/30 via-background to-background"></div>
@@ -110,7 +112,7 @@ useEffect(() => {
           </div>
         </div>
       ) : (
-          <Button size="sm" className="bg-gradient-to-r from-secondary/80 to-primary/80 hover:from-secondary hover:to-primary text-foreground border-0" onClick={()=>router.push('/auth/login')}>
+          <Button size="sm" className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-secondary hover:to-primary text-foreground border-0" onClick={()=>router.push('/auth/login')}>
             Sign In
           </Button>
       )}
@@ -145,9 +147,14 @@ useEffect(() => {
                 <Button size="lg" className="bg-gradient-to-r from-secondary to-primary text-foreground hover:opacity-90 shadow-md border-0">
                   Report Anonymously
                 </Button>
-                <Button size="lg" variant="outline" className="border border-secondary/50 text-secondary hover:bg-secondary/10 backdrop-blur-sm">
-                  Learn More
-                </Button>
+                <Button
+  size="lg"
+  className="bg-blue-800 text-white hover:bg-blue-900 font-semibold border border-blue-900"
+>
+  Learn More
+</Button>
+
+
               </div>
               <div className="pt-8 flex items-center gap-2 text-sm text-muted-foreground">
                 <Shield className="w-4 h-4 text-secondary" />
@@ -179,12 +186,16 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce opacity-70">
-            <a href="#features" className="flex flex-col items-center text-sm text-foreground/60 hover:text-secondary transition-colors">
-              <span>Learn more</span>
-              <ChevronDown className="w-5 h-5" />
-            </a>
-          </div>
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce opacity-80">
+  <a
+    href="#features"
+    className="flex flex-col items-center text-sm !text-[#60a5fa] hover:!text-[#3b82f6] transition-colors"
+  >
+    <span>Learn more</span>
+    <ChevronDown className="w-5 h-5" />
+  </a>
+</div>
+
         </div>
       </section>
 
@@ -353,7 +364,8 @@ useEffect(() => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-b from-background/90 to-background border-t border-primary/10 py-12 px-4">
+      <footer className="bg-[#1e3b8a] border-t border-primary/10 py-12 px-4">
+
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
