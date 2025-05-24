@@ -5,6 +5,7 @@ import 'package:civiceye/core/theme/app_pallete.dart';
 import 'package:civiceye/core/utils/permission_handler.dart';
 import 'package:civiceye/features/auth/pages/loginpage.dart';
 import 'package:civiceye/features/auth/services/auth_service.dart';
+import 'package:civiceye/features/chatbot/chatbot.dart';
 import 'package:civiceye/features/report_crime/report_crime.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
@@ -13,7 +14,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 class Dashboardpage extends StatefulWidget {
   const Dashboardpage({super.key});
@@ -32,7 +32,6 @@ class _DashboardpageState extends State<Dashboardpage> {
 
   double? latitude;
   double? longitude;
-  // Initialize _selectedIndex to 0 for Home
   int _selectedIndex = 0;
 
   @override
@@ -52,7 +51,6 @@ class _DashboardpageState extends State<Dashboardpage> {
     }
   }
 
-  // Method to handle navigation item taps
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -60,13 +58,13 @@ class _DashboardpageState extends State<Dashboardpage> {
 
     switch (index) {
       case 0: // Home
-        
+
         break;
       case 1: // Community
-    
+
         break;
       case 2: // Report Crime
-          final String? userId = authservice.getCurrentUserId();
+        final String? userId = authservice.getCurrentUserId();
         if (userId != null) {
           Navigator.push(
             context,
@@ -86,8 +84,13 @@ class _DashboardpageState extends State<Dashboardpage> {
           );
         }
         break;
-      case 3: // Chat
-        
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ChatbotPage()),
+        );
+        // Chat
+
         break;
     }
   }
@@ -137,8 +140,6 @@ class _DashboardpageState extends State<Dashboardpage> {
       });
     }
   }
-
-
 
   Future<void> _getNearbyPlace(String type) async {
     final amenity = type;
@@ -192,17 +193,37 @@ class _DashboardpageState extends State<Dashboardpage> {
   Widget _buildSOSButton(String label, IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: CircleAvatar(
-        radius: 40,
-        backgroundColor: Colors.red,
+      child: Container(
+        width: 90,
+        height: 90,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF5252), Color(0xFFFF1744)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(45),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(0.5),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 30, color: Colors.white),
-            const SizedBox(height: 4),
+            Icon(icon, size: 32, color: Colors.white),
+            const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -221,34 +242,29 @@ class _DashboardpageState extends State<Dashboardpage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated icon with shadow for selected state
-            // AnimatedContainer(
-            //   duration: const Duration(milliseconds: 200),
-            //   padding: EdgeInsets.all(isSelected ? 12 : 8),
-            //   decoration: BoxDecoration(
-            //     color: isSelected ? primaryColor : backgroundColor,
-            //     shape: BoxShape.circle,
-            //     boxShadow: isSelected
-            //         ? [
-            //             BoxShadow(
-            //               color: secondaryColor.withOpacity(0.5),
-            //               blurRadius: 12,
-            //               spreadRadius: 2,
-            //             )
-            //           ]
-            //         : [],
-            //   ),
-            //   child: Icon(
-            //     icon,
-            //     color: isSelected ? Colors.white : Colors.white70,
-            //     size: isSelected ? 24 : 20,
-            //   ),
-            // ),
-            Icon(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: EdgeInsets.all(isSelected ? 12 : 8),
+              decoration: BoxDecoration(
+                color: isSelected ? secondaryColor : Colors.transparent,
+                shape: BoxShape.circle,
+                boxShadow:
+                    isSelected
+                        ? [
+                          BoxShadow(
+                            color: secondaryColor.withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                        : [],
+              ),
+              child: Icon(
                 icon,
-                color: isSelected ? secondaryColor : Colors.white70,
+                color: isSelected ? Colors.white : Colors.white70,
                 size: isSelected ? 24 : 20,
               ),
+            ),
             const SizedBox(height: 4),
             // Text label with gradient for selected state
             isSelected
@@ -278,26 +294,27 @@ class _DashboardpageState extends State<Dashboardpage> {
       ),
     );
   }
-Future<void> getCurrentUserFullName() async {
-  final user =supabase.auth.currentUser;
-  if(user == null) return;
 
-  final response = await supabase
-      .from('users')
-      .select('full_name')
-      .eq('id', user.id)
-      .maybeSingle();
+  Future<void> getCurrentUserFullName() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-  if (response != null) {
+    final response =
+        await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+    if (response != null) {
       setState(() {
-         currentName = response['full_name'] ?? "Unknown";
+        currentName = response['full_name'] ?? "Unknown";
       });
     }
-}
+  }
+
   @override
   Widget build(BuildContext context) {
-    
-
     final double bottomNavBarHeight =
         70.0 + MediaQuery.of(context).padding.bottom;
 
@@ -326,10 +343,17 @@ Future<void> getCurrentUserFullName() async {
               ),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: logout,
-                color: Colors.white,
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.logout, size: 20),
+                  onPressed: logout,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
@@ -341,77 +365,92 @@ Future<void> getCurrentUserFullName() async {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Greeting Section
+            const SizedBox(height: 25),
+
+            // SOS Section
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "👋 Welcome back,",
-                    style: TextStyle(fontSize: 18, color: textColor),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.emergency,
+                          color: Colors.red,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Emergency SOS",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    currentName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
-                    ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildSOSButton('Police', Icons.local_police, () async {
+                        const phoneNumber = 'tel:100';
+                        if (await canLaunchUrl(Uri.parse(phoneNumber))) {
+                          await launchUrl(Uri.parse(phoneNumber));
+                        }
+                      }),
+                      _buildSOSButton(
+                        'Ambulance',
+                        Icons.local_hospital,
+                        () async {
+                          const phoneNumber = 'tel:102';
+                          if (await canLaunchUrl(Uri.parse(phoneNumber))) {
+                            await launchUrl(Uri.parse(phoneNumber));
+                          }
+                        },
+                      ),
+                      _buildSOSButton(
+                        'Fire',
+                        Icons.local_fire_department,
+                        () async {
+                          const phoneNumber = 'tel:101';
+                          if (await canLaunchUrl(Uri.parse(phoneNumber))) {
+                            await launchUrl(Uri.parse(phoneNumber));
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
 
-            // SOS Section
-            const Text(
-              "🚨 Emergency SOS",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildSOSButton('Police', Icons.local_police, () async {
-                  const phoneNumber = 'tel:100';
-                  if (await canLaunchUrl(Uri.parse(phoneNumber))) {
-                    await launchUrl(Uri.parse(phoneNumber));
-                  }
-                }),
-                _buildSOSButton('Ambulance', Icons.local_hospital, () async {
-                  const phoneNumber = 'tel:102';
-                  if (await canLaunchUrl(Uri.parse(phoneNumber))) {
-                    await launchUrl(Uri.parse(phoneNumber));
-                  }
-                }),
-                _buildSOSButton('Fire', Icons.local_fire_department, () async {
-                  const phoneNumber = 'tel:101';
-                  if (await canLaunchUrl(Uri.parse(phoneNumber))) {
-                    await launchUrl(Uri.parse(phoneNumber));
-                  }
-                }),
-              ],
-            ),
+            const SizedBox(height: 25),
 
-            const SizedBox(height: 70),
-
-            // Stealth Mode Button – now moved up and centered
+            // Stealth Mode Button
             Center(
               child: GestureDetector(
                 onTap: () => {},
                 child: Container(
-                  width: 170,
-                  height: 170,
+                  width: 180,
+                  height: 180,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -422,81 +461,240 @@ Future<void> getCurrentUserFullName() async {
                       center: const Alignment(-0.2, -0.2),
                       radius: 0.8,
                     ),
-                    boxShadow: const [
-                      BoxShadow(blurRadius: 20, spreadRadius: 5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.6),
+                        blurRadius: 25,
+                        spreadRadius: 5,
+                      ),
                     ],
                   ),
-                  child: const Center(
-                    child: Text(
-                      "Stealth\nMode",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+                  child: Center(
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          "Stealth\nMode",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 50),
+            const SizedBox(height: 25),
 
-            // Nearest Facilities
+            // Location Info / Crime Alert
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.6),
+                    const Color.fromARGB(255, 27, 61, 141).withOpacity(0.6),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "📍 Nearest Emergency Services",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.amber,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Your Location",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "🏥 Hospital: $nearestHospital",
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "🚒 Fire Station: $nearestFireStation",
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_history,
+                        color: Colors.yellowAccent,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          crimeAlert,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Location Info / Crime Alert
+            // Nearest Facilities
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.deepPurple.shade300, width: 1),
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.location_history,
-                    color: Colors.yellowAccent,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      crimeAlert,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.local_hospital,
+                          color: Colors.lightBlueAccent,
+                          size: 24,
+                        ),
                       ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Emergency Services",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.local_hospital,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Hospital",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                nearestHospital,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department,
+                          color: Colors.orangeAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Fire Station",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                nearestFireStation,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -506,7 +704,7 @@ Future<void> getCurrentUserFullName() async {
         ),
       ),
 
-      // Beautiful Custom Bottom Navigation Bar
+      // Bottom Navigation Bar
       bottomNavigationBar: SafeArea(
         child: Container(
           decoration: BoxDecoration(
@@ -527,31 +725,19 @@ Future<void> getCurrentUserFullName() async {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   color: primaryColor.withOpacity(0.2),
-                  // border: Border(
-                  //   top: BorderSide(
-                  //     color: secondaryColor.withOpacity(0.3),
-                  //     width: 1,
-                  //   ),
-                  // ),
+                  border: Border(
+                    top: BorderSide(
+                      color: secondaryColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    // Home is now index 0
                     _buildNavBarItem('Home', Icons.home_rounded, 0),
-                    // Community is now index 1
-                    _buildNavBarItem(
-                      'Community',
-                      Icons.people_alt_rounded,
-                      1,
-                    ),
-                    // Report is now index 2
-                    _buildNavBarItem(
-                      'Report',
-                      Icons.report_problem_rounded,
-                      2,
-                    ),
-                    // Chat is now index 3
+                    _buildNavBarItem('Community', Icons.people_alt_rounded, 1),
+                    _buildNavBarItem('Report', Icons.report_problem_rounded, 2),
                     _buildNavBarItem('Chat', Icons.chat_bubble_rounded, 3),
                   ],
                 ),
