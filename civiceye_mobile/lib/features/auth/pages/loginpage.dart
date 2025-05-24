@@ -35,7 +35,7 @@ class _LoginpageState extends State<Loginpage> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
+          MaterialPageRoute(builder: (context) => const Dashboardpage()),
         );
         // or your actual route name
       }

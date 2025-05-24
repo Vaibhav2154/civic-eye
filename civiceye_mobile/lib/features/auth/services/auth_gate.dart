@@ -14,7 +14,7 @@ class AuthGate extends StatelessWidget {
     
     // If there's an active session already, take user directly to profile
     if (currentSession != null && !currentSession.isExpired) {
-      return const DashboardPage();
+      return const Dashboardpage();
     }
     
     // Otherwise listen for auth state changes
