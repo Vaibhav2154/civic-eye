@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+:root {
+  /* Define color variables */
+  --foreground: #e2f2fd;
+  --background: #090e1b;
+  --primary: #1e3b8a;
+  --primary-foreground: #e2f2fd;
+  --secondary: #80b0ff;
+  --secondary-foreground: #090e1b;
+  --accent: #b1bdc4;
+  --accent-foreground: #090e1b;
+
+  --muted: #b1bdc4;
+  --muted-foreground: rgba(226, 242, 253, 0.7);
+
+  --card: rgba(9, 14, 27, 0.8);
+  --card-foreground: #e2f2fd;
+
+  --popover: 222 67% 7%;
+  --popover-foreground: 201 83% 95%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 201 83% 95%;
+
+  --border: 222 67% 15%;
+  --input: 222 67% 15%;
+  --ring: 222 67% 33%;
+
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222 67% 7%;
+  --foreground: 201 83% 95%;
+  --card: 222 67% 7%;
+  --card-foreground: 201 83% 95%;
+  --popover: 222 67% 7%;
+  --popover-foreground: 201 83% 95%;
+  --primary: 222 67% 33%;
+  --primary-foreground: 201 83% 95%;
+  --secondary: 217 100% 75%;
+  --secondary-foreground: 222 67% 7%;
+  --muted: 222 67% 15%;
+  --muted-foreground: 201 83% 75%;
+  --accent: 210 11% 73%;
+  --accent-foreground: 222 67% 7%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 201 83% 95%;
+  --border: 222 67% 15%;
+  --input: 222 67% 15%;
+  --ring: 201 83% 95%;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
