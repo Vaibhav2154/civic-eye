@@ -60,6 +60,7 @@ class _RegisterPageState extends State<RegisterPage> {
         });
       }
       if (mounted) {
+        // Pop the current route if registration is successful
         Navigator.pop(context);
       }
     } catch (e) {
@@ -71,10 +72,12 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  // Helper widget for glassmorphic input fields
   Widget _glassInputField({
     required String label,
     required TextEditingController controller,
     bool obscure = false,
+    TextInputType keyboardType = TextInputType.text, // Added keyboardType
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -86,6 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType, // Applied keyboardType
         style: const TextStyle(color: textColor),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -117,50 +121,68 @@ class _RegisterPageState extends State<RegisterPage> {
         foregroundColor: textColor,
         title: const Text("Create Account"),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _glassInputField(label: "Full Name", controller: _nameController),
-                      _glassInputField(label: "Phone Number", controller: _phoneController),
-                      _glassInputField(label: "Email", controller: _emailcontroller),
-                      _glassInputField(label: "Password", controller: _passwordcontroller, obscure: true),
-                      _glassInputField(label: "Confirm Password", controller: _confirmPasswordController, obscure: true),
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        onPressed: register,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: secondaryColor,
-                          foregroundColor: secondaryFgColor,
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      // Using LayoutBuilder to get the available height for proper centering
+      body: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          return SingleChildScrollView(
+            // Adjust padding to account for keyboard if it appears
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: ConstrainedBox(
+              // Ensure the content takes at least the height of the available space
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: IntrinsicHeight( // Allows its child (Column) to size itself based on its children's intrinsic heights
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
+                  crossAxisAlignment: CrossAxisAlignment.center, // Center content horizontally
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(25),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min, // Keep column size to content
+                              children: [
+                                _glassInputField(label: "Full Name", controller: _nameController),
+                                _glassInputField(label: "Phone Number", controller: _phoneController, keyboardType: TextInputType.phone),
+                                _glassInputField(label: "Email", controller: _emailcontroller, keyboardType: TextInputType.emailAddress),
+                                _glassInputField(label: "Password", controller: _passwordcontroller, obscure: true),
+                                _glassInputField(label: "Confirm Password", controller: _confirmPasswordController, obscure: true),
+                                const SizedBox(height: 30),
+                                ElevatedButton(
+                                  onPressed: register,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: secondaryColor,
+                                    foregroundColor: secondaryFgColor,
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  ),
+                                  child: const Text("Sign Up", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: const Text("Sign Up", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
