@@ -6,9 +6,14 @@ import 'package:civiceye/core/utils/permission_handler.dart';
 import 'package:civiceye/features/auth/pages/loginpage.dart';
 import 'package:civiceye/features/auth/services/auth_service.dart';
 import 'package:civiceye/features/chatbot/chatbot.dart';
+import 'package:civiceye/features/dashboard/decoyCalculator.dart';
 import 'package:civiceye/features/report_crime/report_crime.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:camera/camera.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -140,6 +145,53 @@ class _DashboardpageState extends State<Dashboardpage> {
       });
     }
   }
+
+  
+
+  late CameraController _controller;
+bool _isRecording = false;
+
+Future<void> handleStealthMode(BuildContext context) async {
+final statusCamera = await Permission.camera.request();
+final statusMicrophone = await Permission.microphone.request();
+
+if (!statusCamera.isGranted || !statusMicrophone.isGranted) {
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(content: Text("Camera and Microphone permission required")),
+);
+return;
+}
+
+final cameras = await availableCameras();
+final backCamera = cameras.firstWhere(
+(cam) => cam.lensDirection == CameraLensDirection.back,
+orElse: () => cameras.first,
+);
+
+_controller = CameraController(backCamera, ResolutionPreset.medium);
+await _controller.initialize();
+final Directory appDirectory = await getApplicationDocumentsDirectory();
+final String videoDir = '${appDirectory.path}/Videos';
+await Directory(videoDir).create(recursive: true);
+
+final String filePath = '$videoDir/${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+try {
+  await _controller.startVideoRecording();
+  _isRecording = true;
+} catch (e) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("Failed to start video recording: $e")),
+  );
+  return;
+}
+
+Navigator.push(
+  context,
+  MaterialPageRoute(builder: (context) => CalculatorScreen()),
+);
+}
+
 
   Future<void> _getNearbyPlace(String type) async {
     final amenity = type;
@@ -447,7 +499,7 @@ class _DashboardpageState extends State<Dashboardpage> {
             // Stealth Mode Button
             Center(
               child: GestureDetector(
-                onTap: () => {},
+                onTap: () => handleStealthMode(context),
                 child: Container(
                   width: 180,
                   height: 180,
