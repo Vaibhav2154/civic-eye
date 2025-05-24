@@ -1,11 +1,11 @@
-import 'package:civiceye/features/auth/pages/unAuthPage.dart';
+import 'package:civiceye/features/auth/services/auth_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 
 Future<void> main() async {
-   WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter binding is initialized
+   WidgetsFlutterBinding.ensureInitialized(); 
   await dotenv.load(fileName: ".env");
   try {
     await Supabase.initialize(
@@ -25,7 +25,6 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -33,7 +32,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home:  UnAuthPage(),  
+      home:  const AuthGate(),  
     );
   }
 }
