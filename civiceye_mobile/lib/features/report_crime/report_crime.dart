@@ -39,6 +39,7 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
 
   String? _selectedCategory;
   bool _isAnonymous = false;
+  bool isAPublicPost = true;
   double? _latitude;
   double? _longitude;
   bool _isLocating = false;
@@ -245,6 +246,7 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
           'latitude': _latitude,
           'longitude': _longitude,
           'is_anonymous': _isAnonymous,
+          'isapublicpost': isAPublicPost,
           'reporter_id': _isAnonymous ? null : widget.userId, // Use 'anonymous' string if anonymous
           'status': 'submitted',
           'submitted_at': DateTime.now().toIso8601String(),
@@ -581,24 +583,65 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          const Text(
-            'Report Anonymously',
-            style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Report Anonymously',
+                style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              Switch(
+                value: _isAnonymous,
+                onChanged: (bool value) {
+                  setState(() {
+                    _isAnonymous = value;
+                  });
+                },
+                activeColor: secondaryColor,
+                inactiveTrackColor: accentColor.withOpacity(0.3),
+                inactiveThumbColor: accentColor,
+              ),
+            ],
           ),
-          Switch(
-            value: _isAnonymous,
-            onChanged: (bool value) {
-              setState(() {
-                _isAnonymous = value;
-              });
-            },
-            activeColor: secondaryColor,
-            inactiveTrackColor: accentColor.withOpacity(0.3),
-            inactiveThumbColor: accentColor,
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Make Public Post',
+                style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              Switch(
+                value: isAPublicPost,
+                onChanged: (bool value) {
+                  setState(() {
+                    isAPublicPost = value;
+                  });
+                },
+                activeColor: secondaryColor,
+                inactiveTrackColor: accentColor.withOpacity(0.3),
+                inactiveThumbColor: accentColor,
+              ),
+            ],
           ),
+          if (isAPublicPost)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Your report will be visible to other users in public feeds.',
+                style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 12, fontStyle: FontStyle.italic),
+              ),
+            ),
+          if (!isAPublicPost)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Your report will only be visible to authorities and administrators.',
+                style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 12, fontStyle: FontStyle.italic),
+              ),
+            ),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import 'package:civiceye/core/utils/permission_handler.dart';
 import 'package:civiceye/features/auth/pages/loginpage.dart';
 import 'package:civiceye/features/auth/services/auth_service.dart';
 import 'package:civiceye/features/chatbot/chatbot.dart';
+import 'package:civiceye/features/community/pages/community.dart';
 import 'package:civiceye/features/dashboard/decoyCalculator.dart';
 import 'package:civiceye/features/legal_contacts/legal_contacts_page.dart';
 import 'package:civiceye/features/report_crime/report_crime.dart';
@@ -80,8 +81,16 @@ class _DashboardpageState extends State<Dashboardpage> {
     switch (index) {
       case 0: // Home
         break;
-      case 1: // Community
-        break;
+      case 1: Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CommunityPage()),
+        ).then((_) {
+          // Set _selectedIndex back to Home (index 0) when CommunityPage is popped
+          setState(() {
+            _selectedIndex = 0;
+          });
+        });
+        break;// Community
       case 2: // Report Crime
         final String? userId = authservice.getCurrentUserId();
         if (userId != null) {

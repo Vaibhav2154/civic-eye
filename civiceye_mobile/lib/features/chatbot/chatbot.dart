@@ -51,7 +51,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   Future<void> _createNewChatSession() async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
       
       // Create a payload without user_id
       final payload = {
@@ -90,7 +89,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
     });
 
     try {
-      final userId = _supabase.auth.currentUser?.id;
       
       // Fix: Query chat_sessions table instead of chat_messages for history
       final response = await _supabase
