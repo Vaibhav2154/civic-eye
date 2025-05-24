@@ -1,15 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from jsonschema import validate
+
+from routers import blockchain,chatbot,validate
+
 
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # List of allowed origins - allow all origins
+    allow_origins=["*"],            
     allow_credentials=True,
-    allow_methods=["*"],              # Allow all HTTP methods
-    allow_headers=["*"],              # Allow all headers
+    allow_methods=["*"],              
+    allow_headers=["*"],              
 )
 
 
@@ -18,5 +22,6 @@ app.add_middleware(
 def greet():
   return {"message":"working"}
 
-
-
+app.include_router(validate.router)
+app.include_router(chatbot.router, prefix="/chatbot")
+app.include_router(blockchain.router, prefix="/blockchain")
