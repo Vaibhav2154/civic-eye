@@ -47,7 +47,7 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
   String? _locationError;
 
   final ImagePicker _picker = ImagePicker();
-  List<PickedMedia> _pickedMedia = []; // Stores picked files and their validation status
+  final List<PickedMedia> _pickedMedia = []; // Stores picked files and their validation status
 
   final List<String> _categories = const [
     'corruption',
