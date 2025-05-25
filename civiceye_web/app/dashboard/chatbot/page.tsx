@@ -14,6 +14,7 @@ interface Message {
   timestamp: string;
   id?: string;
   type?: 'text' | 'loading' | 'error';
+    logo?: boolean; 
 }
 
 interface ChatSession {
@@ -66,14 +67,22 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, onDelete
   
   return (
     <div className={`flex items-start gap-3 p-4 ${message.isUser ? 'flex-row-reverse' : ''}`}>
-      {/* Avatar */}
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-        isBot 
-          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-          : 'bg-slate-600/50 text-slate-300 border border-slate-600/50'
-      }`}>
-        {isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-      </div>
+    {/* Avatar */}
+<div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+  isBot 
+    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+    : 'bg-slate-600/50 text-slate-300 border border-slate-600/50'
+}`}>
+  {isBot ? (
+    message.logo ? (
+      <Image src='/logo1.png' priority={true} alt='CivicEye Logo' height={32} width={32} className="w-4 h-4 object-contain" />
+    ) : (
+      <Image src='/logo1.png' priority={true} alt='CivicEye Logo' height={32} width={32} className="w-4 h-4 object-contain"/>
+    )
+  ) : (
+    <User className="w-4 h-4" />
+  )}
+</div>
 
       {/* Message Content */}
       <div className={`flex-1 max-w-[80%] ${message.isUser ? 'flex flex-col items-end' : ''}`}>
@@ -209,14 +218,15 @@ const ChatbotPage: React.FC = () => {
     }
   }, [messageInput]);
 
-  const initializeChat = () => {
-    const initialMessage: Message = {
-      text: 'Hello! I am your CivicEye AI assistant. I can help you with queries related to Indian Criminal Law and Constitutional matters. How can I help you today?',
-      isUser: false,
-      timestamp: new Date().toISOString(),
-      id: '1',
-      type: 'text'
-    };
+ const initializeChat = () => {
+  const initialMessage: Message = {
+    text: 'Hello! I am your CivicEye AI assistant. I can help you with queries related to Indian Criminal Law and Constitutional matters. How can I help you today?',
+    isUser: false,
+    timestamp: new Date().toISOString(),
+    id: '1',
+    type: 'text',
+    logo: true // Add this flag to indicate this message should show logo
+  };
     setMessages([initialMessage]);
     createNewChatSession();
   };
@@ -580,20 +590,28 @@ const ChatbotPage: React.FC = () => {
 
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 w-80 bg-slate-800/90 backdrop-blur-sm border-r border-slate-700/50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex h-full flex-col">
-          {/* Logo Section */}
-           <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-700/50">
-                  <div className="w-8 h-8  rounded-lg flex items-center justify-center">
-                    <Image src='/logo1.png' priority={true} alt='logo' height={100} width={100} />
-                    <span className="text-xl font-bold text-slate-100">CivicEye</span>
-                  </div>
-            <button
-              className="ml-auto lg:hidden text-slate-400 hover:text-slate-100"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </button>
+  <div className="flex h-full flex-col">
+    {/* Logo Section - Now perfectly aligned with main header */}
+    <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 px-6 py-4 flex-shrink-0">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+            <Image src='/logo1.png' priority={true} alt='logo' height={100} width={100} />
           </div>
+          <div>
+            <h1 className="text-lg font-semibold text-slate-100">CivicEye</h1>
+            <p className="text-sm text-slate-400">Civic Monitoring System</p>
+          </div>
+        </div>
+        <button
+          className="lg:hidden text-slate-300 p-2 rounded-md hover:bg-slate-700/50 transition-colors"
+          onClick={() => setIsSidebarOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+    
           
           {/* Navigation Menu */}
           <nav className="px-4 py-6 border-b border-slate-700/50">
@@ -706,6 +724,8 @@ const ChatbotPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0">
