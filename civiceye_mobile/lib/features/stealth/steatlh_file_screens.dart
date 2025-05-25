@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../core/theme/app_pallete.dart';
+
+const String screenPassword = '1234';
 
 class SteatlhFileScreens extends StatefulWidget {
   const SteatlhFileScreens({super.key});
@@ -21,16 +24,36 @@ class _SteatlhFileScreensState extends State<SteatlhFileScreens> {
   List<Map<String, dynamic>> filteredFiles = [];
   Map<String, ChewieController?> videoControllers = {};
   Map<String, String> videoInitializationErrors = {};
+
   
   // Date filtering
   DateTime? selectedStartDate;
   DateTime? selectedEndDate;
   String currentFilter = 'All';
 
+   bool _unlocked = false;
+   bool _loading = false;
+  final TextEditingController _passwordController = TextEditingController();
+  String _error = '';
+
+  
+
+  void _validatePassword() {
+    if (_passwordController.text == screenPassword) {
+      setState(() {
+        _unlocked = true;
+        _error = '';
+      });
+    } else {
+      setState(() {
+        _error = 'Incorrect password. Try again.';
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    loadStealthFiles();
   }
 
   @override
@@ -41,6 +64,8 @@ class _SteatlhFileScreensState extends State<SteatlhFileScreens> {
         controller.dispose();
       }
     }
+    _passwordController.dispose();
+
     super.dispose();
   }
 
@@ -517,17 +542,135 @@ class _SteatlhFileScreensState extends State<SteatlhFileScreens> {
     );
   }
 
+    PreferredSizeWidget _buildGradientAppBar(String title) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(56),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color.fromARGB(255, 6, 53, 182), primaryColor],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: AppBar(
+          title: const Text(
+              "Private Access",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: Colors.white,
+              ),
+            ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+
+      if (!_unlocked) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: _buildGradientAppBar("Private Access"),
+        body: Stack(
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: accentColor.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Enter Password',
+                          style: TextStyle(
+                              color: textColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          style: const TextStyle(color: textColor),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle: const TextStyle(color: accentColor),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.05),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: secondaryColor, width: 1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            errorText: _error.isNotEmpty ? _error : null,
+                          ),
+                          onSubmitted: (_) => _validatePassword(),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _validatePassword,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: secondaryColor,
+                            foregroundColor: secondaryFgColor,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Unlock'),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'Stealth Recordings',
-          style: TextStyle(color: textColor),
-        ),
-        backgroundColor: backgroundColor,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color.fromARGB(255, 6, 53, 182), primaryColor],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        child: AppBar(
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        title: const Text(
+              "Stealth File Vault",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: Colors.white,
+              ),
+            ),
         iconTheme: const IconThemeData(color: textColor),
         actions: [
           IconButton(
@@ -548,6 +691,8 @@ class _SteatlhFileScreensState extends State<SteatlhFileScreens> {
             },
           ),
         ],
+      ),
+        )
       ),
       body: isLoading
           ? const Center(
