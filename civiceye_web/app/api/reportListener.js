@@ -1,5 +1,5 @@
 // report-listener.js
-import { supabase } from '../../lib/supabase-cron/supabaseClient.js'; // use .js even if it's written in TS or compiled
+import { supabase } from '../../lib/supabase-corn/supabaseClient.js'; // use .js even if it's written in TS or compiled
 import { sendReportEmail } from './mailer.js';
 
 
