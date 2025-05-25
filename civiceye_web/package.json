@@ -2,13 +2,15 @@
   "name": "civiceye_web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "trial": "node trial.tsx",
     "dev": "node server.js",
     "next dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "start:report-listener": "node  app/api/reportListener.js"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.10",
