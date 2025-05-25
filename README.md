@@ -66,6 +66,12 @@ A smart, secure, and anonymous platform that enables citizens to report injustic
 
 ### 🧠 AI & Vision
 - **OpenCV** – for face detection and blurring
+- **Gemini** – for llm based chat agent
+- **ChromaDB** – to store and retrive vector embeddings
+
+
+
+
 
 ### 📦 Backend
 - **FastAPI** – lightweight and high-performance REST API
@@ -82,6 +88,13 @@ A smart, secure, and anonymous platform that enables citizens to report injustic
 - **Flutter** – cross-platform reporting app
 - Secure media capture & upload
 - Background SOS triggers
+- **Bloc** - State management
+
+### Open Source Libraries
+- **OverMaps** - For geo fencing and location
+- **Leaflet** - To display maps
+- **nodemialer** - for sending emails
+- **node-cron** - for schedulling tasks in background
 
 ---
 
@@ -127,27 +140,4 @@ Python >= 3.10
 Node.js >= 18.0.0
 Flutter >= 3.0.0
 Supabase Project (configured)
-```
-
-### Installation
-1. Clone the repository
-```bash
-git clone https://github.com/Vaibhav2154/civic-eye.git
-cd civic-eye
-```
-
-2. Install dependencies
-```bash
-npm install
-```
-
-3. Set up environment variables
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-4. Start the development server
-```bash
-npm run dev
 ```
