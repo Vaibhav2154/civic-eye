@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:camera/camera.dart';
+import 'package:civiceye/core/theme/app_pallete.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as path;
@@ -19,318 +21,358 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   String displayText = '';
   CameraController? _cameraController;
   bool isRecording = false;
-  bool isCameraInitialized = false;
-  bool hasUploaded = false;
-  bool _isRecordingActive = false;
-  Timer? _recordingTimer;
+  bool isCameraReady = false;
+  Timer? _autoStopTimer;
+  bool _disposed = false;
 
   final supabase = Supabase.instance.client;
-
-  // Configurable recording duration (in minutes)
-  // ignore: constant_identifier_names
-  static const int RECORDING_DURATION_MINUTES = 10; // Increased to 10 minutes
+  static const int RECORDING_DURATION_MINUTES = 10;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupCamera();
+    });
   }
 
-  Future<void> _initialize() async {
-    if (!await _requestPermissions()) return;
-    await _initCamera();
-  }
+  Future<void> _setupCamera() async {
+    if (_disposed) return;
 
-  Future<bool> _requestPermissions() async {
-    final statuses = await [
-      Permission.camera,
-      Permission.microphone,
-      Permission.storage,
-    ].request();
-
-    final allGranted = statuses.values.every((status) => status.isGranted);
-
-    if (!allGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Permissions not granted')),
-        );
-      }
-    }
-
-    return allGranted;
-  }
-
-  Future<void> _initCamera() async {
     try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        print('❌ No cameras available');
+      // Request permissions
+      final permissions = await [
+        Permission.camera,
+        Permission.microphone,
+        Permission.storage,
+      ].request();
+
+      if (!permissions.values.every((status) => status.isGranted)) {
+        print('❌ Permissions denied');
         return;
       }
 
-      final frontCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
+      // Get cameras
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        print('❌ No cameras found');
+        return;
+      }
+
+      // Dispose existing controller if any
+      await _disposeController();
+
+      // Create new controller
+      final camera = cameras.firstWhere(
+        (cam) => cam.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
 
       _cameraController = CameraController(
-        frontCamera,
+        camera,
         ResolutionPreset.medium,
         enableAudio: true,
       );
 
+      // Initialize camera
       await _cameraController!.initialize();
-      
-      if (!mounted) return;
-      
-      setState(() => isCameraInitialized = true);
 
-      // Wait longer before starting recording to ensure camera is fully stable
-      await Future.delayed(Duration(seconds: 3));
-      
-      if (mounted && _cameraController != null && !_isRecordingActive) {
-        await _startRecording();
-      }
+      if (_disposed || !mounted) return;
+
+      setState(() {
+        isCameraReady = true;
+      });
+
+      print('✅ Camera ready, starting recording immediately...');
+
+      // Start recording immediately - no delay
+      await _startRecording();
+
     } catch (e) {
-      print('❌ Camera init error: $e');
+      print('❌ Camera setup failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera setup failed: $e')),
+        );
+      }
     }
   }
 
   Future<void> _startRecording() async {
-    if (_cameraController == null || _isRecordingActive) {
-      print('⚠️ Camera controller is null or already recording');
+    if (_disposed || !mounted || _cameraController == null || !isCameraReady) {
+      print('❌ Cannot start recording - not ready');
       return;
     }
 
-    if (!_cameraController!.value.isInitialized) {
-      print('⚠️ Camera not initialized');
-      return;
-    }
-
-    if (_cameraController!.value.isRecordingVideo) {
+    if (isRecording) {
       print('⚠️ Already recording');
       return;
     }
 
-    if (!mounted) {
-      print('⚠️ Widget not mounted');
-      return;
-    }
-
     try {
-      await _cameraController!.startVideoRecording();
-      if (mounted) {
-        setState(() {
-          isRecording = true;
-          _isRecordingActive = true;
-        });
-      }
-      print('🎥 Recording started successfully');
+      print('🎥 Starting recording NOW...');
       
-      // Set a timer to automatically stop recording after the configured duration
-      _recordingTimer = Timer(Duration(minutes: RECORDING_DURATION_MINUTES), () {
-        if (_isRecordingActive && !hasUploaded && mounted) {
-          print('⏰ Auto-stopping recording after $RECORDING_DURATION_MINUTES minutes');
+      // Start recording immediately
+      await _cameraController!.startVideoRecording();
+      
+      if (_disposed || !mounted) return;
+
+      setState(() {
+        isRecording = true;
+      });
+
+      print('✅ Recording started successfully');
+
+      // Set auto-stop timer
+      _autoStopTimer = Timer(Duration(minutes: RECORDING_DURATION_MINUTES), () {
+        if (!_disposed && mounted && isRecording) {
+          print('⏰ Auto-stopping after $RECORDING_DURATION_MINUTES minutes');
           _stopRecording();
         }
       });
-      
-    } catch (e, stack) {
-      print('❌ Recording error: $e\n$stack');
+
+    } catch (e) {
+      print('❌ Recording start failed: $e');
+      setState(() {
+        isRecording = false;
+      });
     }
   }
 
   Future<void> _stopRecording() async {
-    if (_cameraController == null || !_isRecordingActive) {
-      print('⚠️ No active recording to stop');
+    if (_disposed || !isRecording || _cameraController == null) {
+      print('❌ Cannot stop recording - not recording or disposed');
       return;
     }
 
-    if (!_cameraController!.value.isRecordingVideo) {
-      print('⚠️ Not currently recording');
-      return;
-    }
-
-    if (hasUploaded) {
-      print('⚠️ Already uploaded, skipping');
-      return;
-    }
-
-    // Cancel the recording timer if it's still active
-    _recordingTimer?.cancel();
-    _recordingTimer = null;
+    _autoStopTimer?.cancel();
+    _autoStopTimer = null;
 
     try {
-      final XFile recorded = await _cameraController!.stopVideoRecording();
+      print('🛑 Stopping recording...');
+      
+      final XFile videoFile = await _cameraController!.stopVideoRecording();
+      
+      if (_disposed || !mounted) return;
+
       setState(() {
         isRecording = false;
-        _isRecordingActive = false;
       });
-      print('📁 Recording stopped: ${recorded.path}');
 
-      // Check if file actually has content
-      final file = File(recorded.path);
-      final fileSize = await file.length();
-      print('📏 File size: $fileSize bytes');
+      print('📁 Recording stopped: ${videoFile.path}');
 
-      if (fileSize > 0) {
-        final uploadedUrl = await _uploadToSupabaseStorage(recorded.path);
-        if (uploadedUrl != null) {
-          await _logEvidenceToDatabase(uploadedUrl);
-          setState(() => hasUploaded = true);
-        }
-      } else {
-        print('⚠️ Recording file is empty');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('⚠️ Recording failed - file is empty')),
-          );
-        }
-      }
+      // Process video immediately
+      await _processVideo(videoFile);
+
     } catch (e) {
-      print('❌ Stop/Upload error: $e');
-      setState(() {
-        isRecording = false;
-        _isRecordingActive = false;
-      });
+      print('❌ Stop recording failed: $e');
+      if (mounted) {
+        setState(() {
+          isRecording = false;
+        });
+      }
     }
   }
 
-  Future<String?> _uploadToSupabaseStorage(String filePath) async {
-    final file = File(filePath);
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(filePath)}';
-    final bytes = await file.readAsBytes();
-    final bucket = 'stealth';
-
+  Future<void> _processVideo(XFile videoFile) async {
     try {
-      final String uploadedPath = await supabase.storage.from(bucket).uploadBinary(
+      final file = File(videoFile.path);
+      
+      // Check if file exists and has content
+      if (!await file.exists()) {
+        print('❌ Video file does not exist');
+        return;
+      }
+
+      final fileSize = await file.length();
+      print('📏 Video file size: $fileSize bytes');
+
+      // Require at least 10KB for a valid video
+      if (fileSize < 10240) {
+        print('❌ Video file too small: $fileSize bytes');
+        
+        // Try to read file info for debugging
+        try {
+          final bytes = await file.readAsBytes();
+          print('🔍 File bytes length: ${bytes.length}');
+          
+          if (bytes.isEmpty) {
+            print('❌ File is completely empty');
+          } else {
+            print('📄 File has content but small size');
+          }
+        } catch (e) {
+          print('❌ Cannot read file: $e');
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ Recording too short or corrupted ($fileSize bytes)')),
+          );
+        }
+        return;
+      }
+
+      print('✅ Video file valid, uploading...');
+      
+      // Upload to Supabase
+      final uploadUrl = await _uploadVideo(videoFile.path);
+      
+      if (uploadUrl != null) {
+        await _saveToDatabase(uploadUrl);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Video uploaded successfully')),
+          );
+        }
+      }
+
+      // Clean up local file
+      try {
+        await file.delete();
+        print('🗑️ Local file deleted');
+      } catch (e) {
+        print('⚠️ Could not delete local file: $e');
+      }
+
+    } catch (e) {
+      print('❌ Video processing failed: $e');
+    }
+  }
+
+  Future<String?> _uploadVideo(String filePath) async {
+    try {
+      final file = File(filePath);
+      final bytes = await file.readAsBytes();
+      
+      print('📤 Uploading ${bytes.length} bytes...');
+      
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_video.mp4';
+      
+      await supabase.storage.from('stealth').uploadBinary(
         'videos/$fileName',
         bytes,
-        fileOptions: FileOptions(
+        fileOptions: const FileOptions(
+          contentType: 'video/mp4',
           cacheControl: '3600',
           upsert: true,
-          contentType: 'video/mp4',
         ),
       );
 
-      // Get the public URL for the uploaded file
-      final String publicUrl = supabase.storage.from(bucket).getPublicUrl('videos/$fileName');
-
-      print('✅ Uploaded: $uploadedPath');
-      print('🔗 Public URL: $publicUrl');
+      final publicUrl = supabase.storage.from('stealth').getPublicUrl('videos/$fileName');
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Video uploaded successfully')),
-        );
-      }
-      
+      print('✅ Upload successful: $publicUrl');
       return publicUrl;
+
     } catch (e) {
-      print('❌ Upload error: $e');
+      print('❌ Upload failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Upload failed')),
+          SnackBar(content: Text('❌ Upload failed: $e')),
         );
       }
       return null;
     }
   }
 
-  Future<void> _logEvidenceToDatabase(String evidenceUrl) async {
+  Future<void> _saveToDatabase(String videoUrl) async {
     try {
       final user = supabase.auth.currentUser;
-      
       if (user == null) {
-        print('⚠️ No authenticated user found');
+        print('⚠️ No authenticated user');
         return;
       }
 
-      final response = await supabase.from('stealth').insert({
+      await supabase.from('stealth').insert({
         'userid': user.id,
-        'evidence_url': evidenceUrl,
+        'evidence_url': videoUrl,
         'created_at': DateTime.now().toIso8601String(),
       });
 
-      print('✅ Evidence logged to database');
-      print('👤 User ID: ${user.id}');
-      print('🔗 Evidence URL: $evidenceUrl');
-      
+      print('✅ Saved to database');
     } catch (e) {
-      print('❌ Database logging error: $e');
-      // Don't show user error for database logging to maintain stealth
+      print('❌ Database save failed: $e');
     }
   }
 
+  Future<void> _disposeController() async {
+    _autoStopTimer?.cancel();
+    _autoStopTimer = null;
+
+    if (_cameraController != null) {
+      try {
+        if (_cameraController!.value.isRecordingVideo) {
+          await _cameraController!.stopVideoRecording();
+        }
+        await _cameraController!.dispose();
+      } catch (e) {
+        print('⚠️ Controller disposal error: $e');
+      }
+      _cameraController = null;
+    }
+  }
+
+  // Calculator functions
   void onPressed(String value) {
-    setState(() {
-      displayText += value;
-    });
+    if (!_disposed) {
+      setState(() {
+        displayText += value;
+      });
+    }
   }
 
-  void clear() async {
-    // Don't stop recording on clear - keep it stealth
-    setState(() => displayText = '');
+  void clear() {
+    if (!_disposed) {
+      setState(() => displayText = '');
+    }
   }
 
-  void backspace() async {
-    // Don't stop recording on backspace - keep it stealth
-    setState(() {
-      displayText = displayText.isNotEmpty
-          ? displayText.substring(0, displayText.length - 1)
-          : '';
-    });
+  void backspace() {
+    if (!_disposed) {
+      setState(() {
+        displayText = displayText.isNotEmpty
+            ? displayText.substring(0, displayText.length - 1)
+            : '';
+      });
+    }
   }
 
   @override
   void dispose() {
-    // Cancel any active timers
-    _recordingTimer?.cancel();
-    // Don't await async operations in dispose - handle them synchronously
-    _handleDispose();
+    _disposed = true;
+    
+    // Stop recording and dispose controller
+    if (isRecording) {
+      _stopRecording().then((_) => _disposeController());
+    } else {
+      _disposeController();
+    }
+    
     super.dispose();
   }
 
-  void _handleDispose() {
-    // Handle cleanup without blocking dispose
-    if (_isRecordingActive && !hasUploaded && _cameraController != null) {
-      // Stop recording in background without awaiting
-      _stopRecording().then((_) {
-        _cameraController?.dispose();
-      }).catchError((e) {
-        print('❌ Error during dispose: $e');
-        _cameraController?.dispose();
-      });
-    } else {
-      _cameraController?.dispose();
+  Future<bool> _onWillPop() async {
+    if (isRecording && !_disposed) {
+      print('🔙 Stopping recording before exit...');
+      await _stopRecording();
+      await Future.delayed(const Duration(milliseconds: 300));
     }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async {
-        // Stop recording when leaving the screen
-        if (_isRecordingActive && !hasUploaded) {
-          print('🔙 Stopping recording due to navigation');
-          await _stopRecording();
-          // Give a moment for the recording to stop properly
-          await Future.delayed(Duration(milliseconds: 500));
-        }
-        return true;
-      },
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: Text("Calculator"),
+          title: const Text("Calculator", style: TextStyle(color: Colors.white),),
           backgroundColor: Colors.black,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
             onPressed: () async {
-              // Ensure recording stops when back button is pressed
-              if (_isRecordingActive && !hasUploaded) {
-                await _stopRecording();
-              }
+              await _onWillPop();
               Navigator.of(context).pop();
             },
           ),
@@ -338,32 +380,46 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         backgroundColor: Colors.black,
         body: Column(
           children: [
-            // Removed camera preview for stealth mode
-            // Camera is initialized and recording but not visible
+            // Display area
             Expanded(
               child: Container(
                 alignment: Alignment.bottomRight,
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
                   displayText,
-                  style: TextStyle(color: Colors.white, fontSize: 36),
+                  style: const TextStyle(color: Colors.white, fontSize: 36),
                 ),
               ),
             ),
+            
+            // Calculator buttons
             GridView.count(
               crossAxisCount: 4,
               shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               children: [
-                ...['7', '8', '9', 'C', '4', '5', '6', '←', '1', '2', '3', '+', '0', '.', '=', '-']
-                    .map((e) => buildButton(e)),
-              ],
+                '7', '8', '9', 'C',
+                '4', '5', '6', '←',
+                '1', '2', '3', '+',
+                '0', '.', '=', '-'
+              ].map((e) => _buildButton(e)).toList(),
             ),
-            // Optional: Add a subtle indicator for recording status (remove if too obvious)
+            
+            // Recording indicator (very subtle)
             if (isRecording)
               Container(
-                height: 2,
-                color: Colors.red.withOpacity(0.3),
+                height: 1,
+                color: Colors.red.withOpacity(0.2),
+              ),
+              
+            // Debug info (remove in production)
+            if (isRecording)
+              Container(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  'REC',
+                  style: TextStyle(color: Colors.red.withOpacity(0.3), fontSize: 8),
+                ),
               ),
           ],
         ),
@@ -371,23 +427,26 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     );
   }
 
-  Widget buildButton(String text) {
+  Widget _buildButton(String text) {
     return GestureDetector(
       onTap: () {
-        if (text == 'C') {
-          clear();
-        } else if (text == '←') {
-          backspace();
-        } else {
-          onPressed(text);
+        switch (text) {
+          case 'C':
+            clear();
+            break;
+          case '←':
+            backspace();
+            break;
+          default:
+            onPressed(text);
         }
       },
       child: Container(
-        margin: EdgeInsets.all(6),
+        margin: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: Colors.grey[850],
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Colors.black54,
               offset: Offset(2, 2),
@@ -398,7 +457,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         child: Center(
           child: Text(
             text,
-            style: TextStyle(fontSize: 28, color: Colors.white),
+            style: const TextStyle(fontSize: 28, color: Colors.white),
           ),
         ),
       ),
