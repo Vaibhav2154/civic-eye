@@ -110,11 +110,25 @@ class _DashboardpageState extends State<Dashboardpage> {
           );
         }
         break;
-      case 3:
+      case 3: // Contacts
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => LegalContactsPage()),
+        ).then((_) {
+          setState(() {
+            _selectedIndex = 0;
+          });
+        });
+        break;
+      case 4: // Chat - make sure to handle this case
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => ChatbotPage()),
-        );
+        ).then((_) {
+          setState(() {
+            _selectedIndex = 0;
+          });
+        });
         break;
     }
   }
@@ -492,10 +506,6 @@ class _DashboardpageState extends State<Dashboardpage> {
             actions: [
               Container(
                 margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(30),
-                ),
                 child: IconButton(
                   icon: const Icon(Icons.video_call, size: 20),
                   onPressed: () => Navigator.push(
@@ -507,10 +517,6 @@ class _DashboardpageState extends State<Dashboardpage> {
               ),
               Container(
                 margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(30),
-                ),
                 child: IconButton(
                   icon: const Icon(Icons.contact_emergency, size: 20),
                   onPressed: () => Navigator.push(
@@ -522,10 +528,6 @@ class _DashboardpageState extends State<Dashboardpage> {
               ),
               Container(
                 margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(30),
-                ),
                 child: IconButton(
                   icon: const Icon(Icons.logout, size: 20),
                   onPressed: logout,
@@ -895,7 +897,8 @@ class _DashboardpageState extends State<Dashboardpage> {
                     _buildNavBarItem('Home', Icons.home_rounded, 0),
                     _buildNavBarItem('Community', Icons.people_alt_rounded, 1),
                     _buildNavBarItem('Report', Icons.report_problem_rounded, 2),
-                    _buildNavBarItem('Chat', Icons.chat_bubble_rounded, 3),
+                    _buildNavBarItem('Contacts', Icons.person_add, 3),
+                    _buildNavBarItem('Chat', Icons.chat_bubble_rounded, 4),
                   ],
                 ),
               ),

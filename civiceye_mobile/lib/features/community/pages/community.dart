@@ -59,13 +59,20 @@ class _CommunityPageState extends State<CommunityPage> {
               end: Alignment.bottomRight,
             ),
           ),
+
           child: AppBar(
+            iconTheme: const IconThemeData(
+              color: primaryFgColor,
+            ), // For back button
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: const Text(
               "Community Reports",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white),
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: Colors.white,
+              ),
             ),
             centerTitle: true,
           ),
@@ -87,13 +94,10 @@ class _CommunityPageState extends State<CommunityPage> {
             const SizedBox(height: 10),
             const Text(
               "View public incident reports shared by community members.",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.white70),
             ),
             const SizedBox(height: 20),
-            
+
             // Refresh button
             if (!_isLoading)
               ElevatedButton.icon(
@@ -105,65 +109,68 @@ class _CommunityPageState extends State<CommunityPage> {
                   foregroundColor: Colors.white,
                 ),
               ),
-              
+
             const SizedBox(height: 20),
-            
+
             // Posts list
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: secondaryColor))
-                  : _errorMessage != null
+              child:
+                  _isLoading
+                      ? const Center(
+                        child: CircularProgressIndicator(color: secondaryColor),
+                      )
+                      : _errorMessage != null
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 48,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage!,
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _loadPosts,
-                                child: const Text('Try Again'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: secondaryColor,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _posts.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.article_outlined,
-                                    color: Colors.white70,
-                                    size: 48,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'No public reports available',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: _posts.length,
-                              itemBuilder: (context, index) {
-                                return CommunityPostCard(post: _posts[index]);
-                              },
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 48,
                             ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadPosts,
+                              child: const Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: secondaryColor,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : _posts.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.article_outlined,
+                              color: Colors.white70,
+                              size: 48,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'No public reports available',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      )
+                      : ListView.builder(
+                        itemCount: _posts.length,
+                        itemBuilder: (context, index) {
+                          return CommunityPostCard(post: _posts[index]);
+                        },
+                      ),
             ),
           ],
         ),
@@ -197,10 +204,7 @@ class _CommunityPageState extends State<CommunityPage> {
 class CommunityPostCard extends StatelessWidget {
   final CommunityPost post;
 
-  const CommunityPostCard({
-    super.key,
-    required this.post,
-  });
+  const CommunityPostCard({super.key, required this.post});
 
   @override
   Widget build(BuildContext context) {
@@ -243,10 +247,7 @@ class CommunityPostCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               post.description,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white70,
-              ),
+              style: const TextStyle(fontSize: 15, color: Colors.white70),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -257,21 +258,35 @@ class CommunityPostCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.white54),
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.white54,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       post.location,
-                      style: const TextStyle(color: Colors.white54, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.white54,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       formattedDate,
-                      style: const TextStyle(color: Colors.white54, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -282,7 +297,10 @@ class CommunityPostCard extends StatelessWidget {
             Wrap(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: secondaryColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -296,7 +314,10 @@ class CommunityPostCard extends StatelessWidget {
                 if (post.isAnonymous)
                   Container(
                     margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.amber.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
@@ -333,7 +354,7 @@ class CommunityPostCard extends StatelessWidget {
   }
 
   String _formatCategory(String category) {
-    return category.isNotEmpty 
+    return category.isNotEmpty
         ? '${category[0].toUpperCase()}${category.substring(1)}'
         : 'Other';
   }

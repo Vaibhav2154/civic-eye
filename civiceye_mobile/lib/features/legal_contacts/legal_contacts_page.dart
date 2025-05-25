@@ -12,7 +12,8 @@ class LegalContactsPage extends StatefulWidget {
   State<LegalContactsPage> createState() => _LegalContactsPageState();
 }
 
-class _LegalContactsPageState extends State<LegalContactsPage> with SingleTickerProviderStateMixin {
+class _LegalContactsPageState extends State<LegalContactsPage>
+    with SingleTickerProviderStateMixin {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _contacts = [];
   bool _isLoading = true;
@@ -21,7 +22,7 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
   String? _errorMessage;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -29,10 +30,13 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_animationController);
     _fetchLegalContacts();
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -71,7 +75,9 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
     } else if (_selectedFilter == 'Verified') {
       return _contacts.where((contact) => contact['verified'] == true).toList();
     } else {
-      return _contacts.where((contact) => contact['type'] == _selectedFilter).toList();
+      return _contacts
+          .where((contact) => contact['type'] == _selectedFilter)
+          .toList();
     }
   }
 
@@ -81,7 +87,7 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
       path: email,
       query: 'subject=Legal Assistance Request',
     );
-    
+
     if (!await launchUrl(emailUri)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -93,11 +99,8 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
   }
 
   Future<void> _launchCall(String phoneNumber) async {
-    final Uri callUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    
+    final Uri callUri = Uri(scheme: 'tel', path: phoneNumber);
+
     if (!await launchUrl(callUri)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -107,28 +110,28 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
       );
     }
   }
-  
+
   Future<void> _shareContact(Map<String, dynamic> contact) async {
     String shareText = "Legal Contact Information\n\n";
     shareText += "Name: ${contact['name']}\n";
     shareText += "Type: ${contact['type']}\n";
-    
+
     if (contact['specialization'] != null) {
       shareText += "Specialization: ${contact['specialization']}\n";
     }
-    
+
     if (contact['region_covered'] != null) {
       shareText += "Regions Covered: ${contact['region_covered']}\n";
     }
-    
+
     if (contact['email'] != null) {
       shareText += "Email: ${contact['email']}\n";
     }
-    
+
     if (contact['phone_number'] != null) {
       shareText += "Phone: ${contact['phone_number']}\n";
     }
-    
+
     await Share.share(shareText, subject: 'Legal Contact Information');
   }
 
@@ -158,6 +161,10 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
             ],
           ),
           child: AppBar(
+            iconTheme: const IconThemeData(
+              color: primaryFgColor,
+            ), // For back button
+
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: const Text(
@@ -178,10 +185,7 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
             centerTitle: true,
             actions: [
               IconButton(
-                icon: const Icon(
-                  Icons.refresh,
-                  color: Colors.white,
-                ),
+                icon: const Icon(Icons.refresh, color: Colors.white),
                 onPressed: _fetchLegalContacts,
               ),
             ],
@@ -192,68 +196,69 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
         children: [
           _buildFilterChips(),
           Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: secondaryColor),
-                  )
-                : _errorMessage != null
+            child:
+                _isLoading
+                    ? const Center(
+                      child: CircularProgressIndicator(color: secondaryColor),
+                    )
+                    : _errorMessage != null
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 48,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: _fetchLegalContacts,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Try Again'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: secondaryColor,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _filteredContacts.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.search_off,
-                                  color: Colors.white70,
-                                  size: 48,
-                                ),
-                                SizedBox(height: 16),
-                                Text(
-                                  'No contacts found for the selected filter',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              ],
-                            ),
-                          )
-                        : FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(12),
-                              itemCount: _filteredContacts.length,
-                              itemBuilder: (context, index) {
-                                final contact = _filteredContacts[index];
-                                return _buildContactCard(contact);
-                              },
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: _fetchLegalContacts,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Try Again'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: secondaryColor,
+                              foregroundColor: Colors.white,
                             ),
                           ),
+                        ],
+                      ),
+                    )
+                    : _filteredContacts.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            color: Colors.white70,
+                            size: 48,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No contacts found for the selected filter',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    )
+                    : FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _filteredContacts.length,
+                        itemBuilder: (context, index) {
+                          final contact = _filteredContacts[index];
+                          return _buildContactCard(contact);
+                        },
+                      ),
+                    ),
           ),
         ],
       ),
@@ -263,7 +268,10 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
         },
         backgroundColor: secondaryColor,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Request Contact', style: TextStyle(color: Colors.white)),
+        label: const Text(
+          'Request Contact',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
@@ -271,45 +279,58 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
   void _showRequestContactDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: backgroundColor.withOpacity(0.95),
-        title: const Text('Request a Legal Contact', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Need assistance with finding a legal contact in your area? Fill out a quick form and we\'ll try to connect you with someone suitable.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Contact request form will be available soon!'),
-                    backgroundColor: primaryColor,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: secondaryColor,
-                minimumSize: const Size(double.infinity, 45),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: backgroundColor.withOpacity(0.95),
+            title: const Text(
+              'Request a Legal Contact',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
-              child: const Text('Continue to Form'),
             ),
-          ],
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 10,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Need assistance with finding a legal contact in your area? Fill out a quick form and we\'ll try to connect you with someone suitable.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Contact request form will be available soon!',
+                        ),
+                        backgroundColor: primaryColor,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: secondaryColor,
+                    minimumSize: const Size(double.infinity, 45),
+                  ),
+                  child: const Text('Continue to Form'),
+                ),
+              ],
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 10,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -330,37 +351,39 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: _filterOptions.map((filter) {
-          final isSelected = _selectedFilter == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(
-                filter,
-                style: TextStyle(
-                  color: isSelected ? secondaryFgColor : Colors.black,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        children:
+            _filterOptions.map((filter) {
+              final isSelected = _selectedFilter == filter;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(
+                    filter,
+                    style: TextStyle(
+                      color: isSelected ? secondaryFgColor : Colors.black,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  selected: isSelected,
+                  showCheckmark: false,
+                  backgroundColor: primaryColor.withOpacity(0.2),
+                  selectedColor: secondaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isSelected ? secondaryColor : Colors.white24,
+                      width: 1,
+                    ),
+                  ),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = filter;
+                    });
+                  },
                 ),
-              ),
-              selected: isSelected,
-              showCheckmark: false,
-              backgroundColor: primaryColor.withOpacity(0.2),
-              selectedColor: secondaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? secondaryColor : Colors.white24,
-                  width: 1,
-                ),
-              ),
-              onSelected: (selected) {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-              },
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
@@ -368,15 +391,13 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
   Widget _buildContactCard(Map<String, dynamic> contact) {
     final priorityColor = _getPriorityColor(contact['priority_level']);
     final isNGO = contact['type'] == 'NGO';
-    
+
     return Hero(
       tag: 'contact-${contact['id']}',
       child: Card(
         margin: const EdgeInsets.only(bottom: 16),
         elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         color: Colors.transparent,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
@@ -423,7 +444,10 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isNGO ? Colors.teal.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+                            color:
+                                isNGO
+                                    ? Colors.teal.withOpacity(0.3)
+                                    : Colors.orange.withOpacity(0.3),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isNGO ? Colors.teal : Colors.orange,
@@ -431,7 +455,8 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: (isNGO ? Colors.teal : Colors.orange).withOpacity(0.3),
+                                color: (isNGO ? Colors.teal : Colors.orange)
+                                    .withOpacity(0.3),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -464,20 +489,32 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                                   ),
                                   if (contact['verified'] == true)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: Colors.green.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.green.withOpacity(0.5)),
+                                        border: Border.all(
+                                          color: Colors.green.withOpacity(0.5),
+                                        ),
                                       ),
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.verified, color: Colors.green, size: 16),
+                                          Icon(
+                                            Icons.verified,
+                                            color: Colors.green,
+                                            size: 16,
+                                          ),
                                           SizedBox(width: 4),
                                           Text(
                                             'Verified',
-                                            style: TextStyle(color: Colors.green, fontSize: 12),
+                                            style: TextStyle(
+                                              color: Colors.green,
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -508,47 +545,77 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                         if (contact['specialization'] != null) ...[
                           Row(
                             children: [
-                              const Icon(Icons.category, size: 16, color: secondaryColor),
+                              const Icon(
+                                Icons.category,
+                                size: 16,
+                                color: secondaryColor,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Specialization',
-                                style: TextStyle(color: secondaryColor, fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  color: secondaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
                             contact['specialization'],
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
                           ),
                           const SizedBox(height: 16),
                         ],
                         if (contact['region_covered'] != null) ...[
                           Row(
                             children: [
-                              const Icon(Icons.location_on, size: 16, color: secondaryColor),
+                              const Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: secondaryColor,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Regions Covered',
-                                style: TextStyle(color: secondaryColor, fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  color: secondaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
                             contact['region_covered'],
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
                           ),
                           const SizedBox(height: 16),
                         ],
                         if (contact['languages_supported'] != null) ...[
                           Row(
                             children: [
-                              const Icon(Icons.language, size: 16, color: secondaryColor),
+                              const Icon(
+                                Icons.language,
+                                size: 16,
+                                color: secondaryColor,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Languages',
-                                style: TextStyle(color: secondaryColor, fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  color: secondaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
@@ -556,21 +623,36 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: (contact['languages_supported'] as String)
-                                .split(',')
-                                .map((lang) => Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: primaryColor.withOpacity(0.3),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: secondaryColor.withOpacity(0.3)),
+                            children:
+                                (contact['languages_supported'] as String)
+                                    .split(',')
+                                    .map(
+                                      (lang) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: secondaryColor.withOpacity(
+                                              0.3,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          lang.trim(),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
-                                      child: Text(
-                                        lang.trim(),
-                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                      ),
-                                    ))
-                                .toList(),
+                                    )
+                                    .toList(),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -579,27 +661,43 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                           children: [
                             // Priority indicator
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: priorityColor.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: priorityColor.withOpacity(0.5)),
+                                border: Border.all(
+                                  color: priorityColor.withOpacity(0.5),
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.priority_high, color: priorityColor, size: 16),
+                                  Icon(
+                                    Icons.priority_high,
+                                    color: priorityColor,
+                                    size: 16,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     "${contact['priority_level'] ?? 'Medium'} Priority",
-                                    style: TextStyle(color: priorityColor, fontSize: 13, fontWeight: FontWeight.w500),
+                                    style: TextStyle(
+                                      color: priorityColor,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            
+
                             // Share button
                             IconButton(
-                              icon: const Icon(Icons.share, color: Colors.white70),
+                              icon: const Icon(
+                                Icons.share,
+                                color: Colors.white70,
+                              ),
                               onPressed: () => _shareContact(contact),
                               tooltip: 'Share contact info',
                             ),
@@ -638,7 +736,9 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                               _launchEmail(email);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('No email available')),
+                                const SnackBar(
+                                  content: Text('No email available'),
+                                ),
                               );
                             }
                           },
@@ -653,7 +753,9 @@ class _LegalContactsPageState extends State<LegalContactsPage> with SingleTicker
                               _launchCall(phone);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('No phone number available')),
+                                const SnackBar(
+                                  content: Text('No phone number available'),
+                                ),
                               );
                             }
                           },
