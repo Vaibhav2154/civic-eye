@@ -75,6 +75,8 @@ export default function Home() {
             <a href="#features" className="text-foreground/80 hover:text-secondary transition-colors text-xl">Features</a>
             <a href="#stats" className="text-foreground/80 hover:text-secondary transition-colors text-xl">Impact</a>
             <a href="#testimonials" className="text-foreground/80 hover:text-secondary transition-colors text-xl">Testimonials</a>
+            <a href="https://drive.google.com/file/d/1BjFRt-RR6pyuDHqU7yZKr5lNhfMKbFgC/view?usp=sharing">Download the App Now</a>
+
           </div>
           {user ? (
             <div className="relative group flex items-center space-x-2">
@@ -140,10 +142,6 @@ export default function Home() {
                 Empowering Voices,{' '}
                 <span className="bg-gradient-to-r from-secondary via-secondary/90 to-primary-light bg-clip-text text-transparent drop-shadow-sm">Protecting Truth</span>
               </h1>
-                <div className="inline-flex text-bold items-center px-4 py-4 rounded-full border transition-all duration-300 shadow-sm hover:shadow-blue-900/                20">
-                <a href="link to downliad">Download the App Now</a>
-              </div>
-
               <p className="text-xl text-muted-foreground max-w-2xl mb-8">
                 Report injustice safely and anonymously. Your voice matters, and we ensure it's heard while keeping you protected.
               </p>
