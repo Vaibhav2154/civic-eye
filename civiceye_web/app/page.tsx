@@ -10,17 +10,17 @@ import { supabase } from '@/lib/supabaseClient'
 
 export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
-  
+
   const [user, setUser] = useState<any>(null)
 
   const router = useRouter()
- useEffect(() => {
+  useEffect(() => {
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession()
-      
+
       if (data?.session?.user) {
         setUser(data.session.user)
-        
+
       } else {
         setUser(null)
       }
@@ -28,9 +28,9 @@ export default function Home() {
 
     getSession()
 
-    
 
-    
+
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
     })
@@ -41,12 +41,12 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-  console.log("User changed:", user);
-}, [user])
+    console.log("User changed:", user);
+  }, [user])
 
-useEffect(() => {
-  setIsLoaded(true); 
-}, []);
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUser(null)
@@ -54,7 +54,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-[#1e3b8a] overflow-hidden">
+    <div className="min-h-screen bg-slate-900 overflow-hidden">
 
 
       {/* Gradient Background */}
@@ -76,47 +76,47 @@ useEffect(() => {
             <a href="#stats" className="text-foreground/80 hover:text-secondary transition-colors text-xl">Impact</a>
             <a href="#testimonials" className="text-foreground/80 hover:text-secondary transition-colors text-xl">Testimonials</a>
           </div>
-                {user ? (
-        <div className="relative group flex items-center space-x-2">
-          <img
-            src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}`}
-            alt="avatar"
-            className="w-8 h-8 rounded-full"
-          />
-          <span className="text-white hidden sm:block">
-            {user.user_metadata?.full_name || user.full_name}
-          </span>
+          {user ? (
+            <div className="relative group flex items-center space-x-2">
+              <img
+                src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}`}
+                alt="avatar"
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="text-white hidden sm:block">
+                {user.user_metadata?.full_name || user.full_name}
+              </span>
 
-          <div className="relative group">
-            
-            <div className="absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-md hidden group-hover:block z-50">
-              <a
-                href="/dashboard"
-                className="block px-4 py-2 hover:bg-gray-100"
-              >
-                Dashboard
-              </a>
-              <a
-                href="/auth/profile-edit"
-                className="block px-4 py-2 hover:bg-gray-100"
-              >
-                Edit Profile
-              </a>
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100"
-              >
-                Log out
-              </button>
+              <div className="relative group">
+
+                <div className="absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-md hidden group-hover:block z-50">
+                  <a
+                    href="/dashboard"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                  >
+                    Dashboard
+                  </a>
+                  <a
+                    href="/auth/profile-edit"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                  >
+                    Edit Profile
+                  </a>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : (
-          <Button size="sm" className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-secondary hover:to-primary text-foreground border-0" onClick={()=>router.push('/auth/login')}>
-            Sign In
-          </Button>
-      )}
-     
+          ) : (
+            <Button size="sm" className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-secondary hover:to-primary text-foreground border-0" onClick={() => router.push('/auth/login')}>
+              Sign In
+            </Button>
+          )}
+
         </div>
       </nav>
 
@@ -140,6 +140,10 @@ useEffect(() => {
                 Empowering Voices,{' '}
                 <span className="bg-gradient-to-r from-secondary via-secondary/90 to-primary-light bg-clip-text text-transparent drop-shadow-sm">Protecting Truth</span>
               </h1>
+                <div className="inline-flex text-bold items-center px-4 py-4 rounded-full border transition-all duration-300 shadow-sm hover:shadow-blue-900/                20">
+                <a href="link to downliad">Download the App Now</a>
+              </div>
+
               <p className="text-xl text-muted-foreground max-w-2xl mb-8">
                 Report injustice safely and anonymously. Your voice matters, and we ensure it's heard while keeping you protected.
               </p>
@@ -148,11 +152,11 @@ useEffect(() => {
                   Report Anonymously
                 </Button>
                 <Button
-  size="lg"
-  className="bg-blue-800 text-white hover:bg-blue-900 font-semibold border border-blue-900"
->
-  Learn More
-</Button>
+                  size="lg"
+                  className=" text-white hover:bg-blue-900 font-semibold border border-blue-900"
+                >
+                  Learn More
+                </Button>
 
 
               </div>
@@ -187,14 +191,14 @@ useEffect(() => {
           </div>
 
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce opacity-80">
-  <a
-    href="#features"
-    className="flex flex-col items-center text-sm !text-[#60a5fa] hover:!text-[#3b82f6] transition-colors"
-  >
-    <span>Learn more</span>
-    <ChevronDown className="w-5 h-5" />
-  </a>
-</div>
+            <a
+              href="#features"
+              className="flex flex-col items-center text-sm !text-[#60a5fa] hover:!text-[#3b82f6] transition-colors"
+            >
+              <span>Learn more</span>
+              <ChevronDown className="w-5 h-5" />
+            </a>
+          </div>
 
         </div>
       </section>
@@ -364,7 +368,7 @@ useEffect(() => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#1e3b8a] border-t border-primary/10 py-12 px-4">
+      <footer className="bg-slate-900 border-t border-primary/10 py-12 px-4">
 
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">

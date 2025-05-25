@@ -78,7 +78,7 @@ export default function ReportDetail() {
 
   if (!report) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-foreground">
         <div className="text-center p-6 bg-destructive text-destructive-foreground rounded-xl">
           <p className="text-lg">Report not found.</p>
           <button
@@ -93,7 +93,7 @@ export default function ReportDetail() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-slate-900 text-foreground">
       <header className="w-full py-6 px-6 md:px-10 border-b bg-background border-border sticky top-0 z-10">
         <div className="flex items-center">
           <button
