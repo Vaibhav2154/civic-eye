@@ -10,19 +10,19 @@ import 'dart:ui'; // For BackdropFilter
 import 'package:image_picker/image_picker.dart'; // For picking images and videos
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart'; // For picking audio files
+import 'package:path/path.dart' as path; // For file path manipulations
 
 // Assuming these are defined in your app_pallete.dart file
 import 'package:civiceye/core/theme/app_pallete.dart';
 import 'package:civiceye/core/utils/permission_handler.dart'; // Assuming you have this for location permission
 
 // Define the base URL for your backend API
- String _baseUrl = ApiConstants.baseUrl;
+String _baseUrl = ApiConstants.baseUrl;
 
 class ReportCrimePage extends StatefulWidget {
   final String userId; // The ID of the currently logged-in user
 
   const ReportCrimePage({super.key, required this.userId});
-  
 
   @override
   State<ReportCrimePage> createState() => _ReportCrimePageState();
@@ -47,7 +47,8 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
   String? _locationError;
 
   final ImagePicker _picker = ImagePicker();
-  final List<PickedMedia> _pickedMedia = []; // Stores picked files and their validation status
+  final List<PickedMedia> _pickedMedia =
+      []; // Stores picked files and their validation status
 
   final List<String> _categories = const [
     'corruption',
@@ -55,7 +56,7 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     'theft',
     'violence',
     'discrimination',
-    'other'
+    'other',
   ];
 
   @override
@@ -113,7 +114,6 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     }
   }
 
-
   Future<void> _pickMedia(ImageSource source, {bool isVideo = false}) async {
     XFile? file;
     if (isVideo) {
@@ -123,7 +123,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     }
 
     if (file != null) {
-      PickedMedia newMedia = PickedMedia(file: File(file.path), type: isVideo ? MediaType.video : MediaType.image);
+      PickedMedia newMedia = PickedMedia(
+        file: File(file.path),
+        type: isVideo ? MediaType.video : MediaType.image,
+      );
       setState(() {
         _pickedMedia.add(newMedia);
       });
@@ -138,7 +141,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     );
 
     if (result != null && result.files.single.path != null) {
-      PickedMedia newMedia = PickedMedia(file: File(result.files.single.path!), type: MediaType.audio);
+      PickedMedia newMedia = PickedMedia(
+        file: File(result.files.single.path!),
+        type: MediaType.audio,
+      );
       setState(() {
         _pickedMedia.add(newMedia);
       });
@@ -163,14 +169,16 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
       case MediaType.audio:
         endpoint = '/validate/audio';
         break;
-      }
+    }
 
     try {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl$endpoint'),
       );
-      request.files.add(await http.MultipartFile.fromPath('file', media.file.path));
+      request.files.add(
+        await http.MultipartFile.fromPath('file', media.file.path),
+      );
 
       var response = await request.send();
       var responseBody = await response.stream.bytesToString();
@@ -188,7 +196,11 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Media validation failed for ${media.type}: ${responseBody}')),
+            SnackBar(
+              content: Text(
+                'Media validation failed for ${media.type}: ${responseBody}',
+              ),
+            ),
           );
         }
       }
@@ -205,19 +217,120 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     }
   }
 
+  // Add this function to your ReportCrimeState class to handle media upload to Supabase
+  Future<String> _uploadMediaToSupabase(File file, MediaType type) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(file.path)}';
+      final bytes = await file.readAsBytes();
+      final bucket = 'evidence';
+      final folder =
+          type == MediaType.image
+              ? 'images'
+              : type == MediaType.video
+              ? 'videos'
+              : 'audio';
+
+      // Include user ID in the path for RLS
+      final filePath = '${user.id}/$folder/$fileName';
+
+      final String uploadedPath = await supabase.storage
+          .from(bucket)
+          .uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(
+              cacheControl: '3600',
+              upsert: true,
+              contentType:
+                  type == MediaType.image
+                      ? 'image/jpeg'
+                      : type == MediaType.video
+                      ? 'video/mp4'
+                      : 'audio/mp4',
+            ),
+          );
+
+      final String publicUrl = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+      return publicUrl;
+    } catch (e) {
+      print('❌ Evidence upload error: $e');
+      throw e;
+    }
+  }
+
+  // Add function to insert evidence records
+  Future<void> _insertEvidenceRecords(
+    String reportId, // Changed from int to String
+    List<String> mediaUrls,
+    List<MediaType> mediaTypes,
+  ) async {
+    try {
+      final evidenceRecords = <Map<String, dynamic>>[];
+
+      for (int i = 0; i < mediaUrls.length; i++) {
+        evidenceRecords.add({
+          'evidence_id':const Uuid().v4(),
+          'uploaded_by': _isAnonymous ? null : widget.userId,
+          'report_id': reportId,
+          'file_url': mediaUrls[i],
+          'file_type':
+              mediaTypes[i] == MediaType.image
+                  ? 'image'
+                  : mediaTypes[i] == MediaType.video
+                  ? 'video'
+                  : 'audio',
+          'uploaded_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      // Insert all evidence records
+      await supabase.from('evidence').insert(evidenceRecords);
+      print('✅ Evidence records inserted successfully');
+    } catch (e) {
+      print('❌ Error inserting evidence records: $e');
+      throw e;
+    }
+  }
+
+  // Modify _submitReport to include media upload and evidence table updates
   Future<void> _submitReport() async {
     if (_formKey.currentState!.validate()) {
-      // Check if all media items are validated and none are failed
-      if (_pickedMedia.any((m) => m.validationStatus == MediaValidationStatus.validating)) {
+      // Check authentication first
+      final user = supabase.auth.currentUser;
+      if (user == null && !_isAnonymous) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please wait for all media to be validated.')),
+          const SnackBar(content: Text('Please log in to submit a report.')),
+        );
+        return;
+      }
+
+      // Check if all media items are validated and none are failed
+      if (_pickedMedia.any(
+        (m) => m.validationStatus == MediaValidationStatus.validating,
+      )) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please wait for all media to be validated.'),
+          ),
         );
         return;
       }
 
       if (_pickedMedia.any((m) => m.tampered == true)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cannot submit report with tampered media. Please remove or replace.')),
+          const SnackBar(
+            content: Text(
+              'Cannot submit report with tampered media. Please remove or replace.',
+            ),
+          ),
         );
         return;
       }
@@ -227,81 +340,106 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
       });
 
       try {
-        const uuid = Uuid();
-        final String reportId = uuid.v4(); // Generate a new UUID for the report
+        final mediaUrls = <String>[];
+        final mediaTypes = <MediaType>[];
 
-        // Prepare media links for blockchain (in a real app, you'd upload to cloud storage first)
-        // For this dummy, we'll just use dummy local file paths or names.
-        final List<String> mediaLinks = _pickedMedia.map((m) => m.file.path.split('/').last).toList();
+        // Upload each media file to Supabase storage and collect URLs
+        for (final media in _pickedMedia) {
+          final url = await _uploadMediaToSupabase(media.file, media.type);
+          mediaUrls.add(url);
+          mediaTypes.add(media.type);
+        }
 
-        final Map<String, dynamic> reportData = {
-          'id': reportId,
-          'userid': widget.userId, // Reporter's user ID (if not anonymous)
-          'title': _titleController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'category': _selectedCategory,
-          'city': _cityController.text.trim(),
-          'state': _stateController.text.trim(),
-          'country': _countryController.text.trim(),
+        // Insert the report first to get the report ID
+        final reportData = {
+          'id': const Uuid().v4(), // Generate a UUID for the id field
+          'userid': _isAnonymous ? null : widget.userId,
+          'title': _titleController.text,
+          'description': _descriptionController.text,
           'latitude': _latitude,
           'longitude': _longitude,
-          'is_anonymous': _isAnonymous,
+          'city': _cityController.text,
+          'state': _stateController.text,
+          'country': _countryController.text,
+          'category': _selectedCategory,
           'isapublicpost': isAPublicPost,
-          'reporter_id': _isAnonymous ? null : widget.userId, // Use 'anonymous' string if anonymous
+          'reporter_id': _isAnonymous ? null : widget.userId,
           'status': 'submitted',
           'submitted_at': DateTime.now().toIso8601String(),
         };
 
-        final responseSupabase = await supabase.from('reports').insert(reportData);
+        final List<dynamic> reportResponse = await supabase
+            .from('reports')
+            .insert(reportData)
+            .select('id');
 
-        // Supabase operations don't throw an error directly on non-2xx status,
-        // but rather return a PostgrestResponse object with an error field.
-        // For simple insert, a successful insert will typically just return null for error.
-        if (responseSupabase != null && responseSupabase.error != null) {
-          throw responseSupabase.error!; // Throw error if Supabase insertion failed
+        if (reportResponse.isEmpty) {
+          throw Exception('Failed to create report');
         }
 
-        // Submit to blockchain API
+        final String reportId = reportResponse.first['id']; // Changed from int to String
+        print('✅ Report created with ID: $reportId');
+
+        // Insert evidence records if there are media files
+        if (mediaUrls.isNotEmpty) {
+          await _insertEvidenceRecords(reportId, mediaUrls, mediaTypes);
+        }
+
+        // Submit to blockchain API with the media URLs
         var request = http.MultipartRequest(
           'POST',
           Uri.parse('$_baseUrl/blockchain/report'),
         );
 
-        request.fields['text'] = json.encode(reportData); // Send whole report data as 'text' field as JSON string
-        request.fields['media_links'] = json.encode(mediaLinks); // Send media links as JSON string
-        if (!_isAnonymous) {
-          request.fields['user_id'] = widget.userId;
-        }
+        request.fields['text'] =
+            '${_titleController.text} - ${_descriptionController.text}';
+        request.fields['media_links'] = jsonEncode(
+          mediaUrls,
+        ); // Send media URLs as JSON string
+        request.fields['user_id'] = _isAnonymous ? 'anonymous' : widget.userId;
+        request.fields['report_id'] =
+            reportId; // No need for toString() since it's already a String
 
-        var response = await request.send();
-        var responseBody = await response.stream.bytesToString();
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
 
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Crime report submitted successfully to blockchain!')),
-            );
-            Navigator.pop(context); // Go back to the previous page (Dashboard)
+        if (response.statusCode == 200) {
+          final blockchainResponse = jsonDecode(response.body);
+          print('✅ Blockchain response: $blockchainResponse');
+
+          // Optionally update the report with blockchain transaction hash
+          if (blockchainResponse['transaction_hash'] != null) {
+            await supabase
+                .from('reports')
+                .update({
+                  'blockchain_hash': blockchainResponse['transaction_hash'],
+                })
+                .eq('id', reportId);
           }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Report submitted successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          Navigator.pop(context);
         } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to submit report to blockchain: ${responseBody}')),
-            );
-          }
+          throw Exception('Blockchain submission failed: ${response.body}');
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('An error occurred during submission: ${e.toString()}')),
-          );
-        }
+        print('❌ Report submission error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error submitting report: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       } finally {
-        if (mounted) {
-          setState(() {
-            _isSubmitting = false;
-          });
-        }
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
@@ -311,8 +449,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Report a Crime',
-            style: TextStyle(color: primaryFgColor, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Report a Crime',
+          style: TextStyle(color: primaryFgColor, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: primaryColor, // Base color for app bar
         flexibleSpace: Container(
           // Apply gradient here
@@ -324,7 +464,9 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
             ),
           ),
         ),
-        iconTheme: const IconThemeData(color: primaryFgColor), // For back button
+        iconTheme: const IconThemeData(
+          color: primaryFgColor,
+        ), // For back button
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -368,13 +510,19 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               _buildAwesomeDropdownField(
                 labelText: 'Category',
                 value: _selectedCategory,
-                items: _categories.map((category) {
-                  return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category.replaceFirst(category[0], category[0].toUpperCase()),
-                        style: const TextStyle(color: textColor)),
-                  );
-                }).toList(),
+                items:
+                    _categories.map((category) {
+                      return DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(
+                          category.replaceFirst(
+                            category[0],
+                            category[0].toUpperCase(),
+                          ),
+                          style: const TextStyle(color: textColor),
+                        ),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   setState(() {
                     _selectedCategory = value;
@@ -390,12 +538,14 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               const SizedBox(height: 20),
 
               // Location Section
-              Text('Location Details',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
+              Text(
+                'Location Details',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 10),
 
               if (_isLocating)
@@ -410,7 +560,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
                   padding: const EdgeInsets.symmetric(vertical: 10.0),
                   child: Text(
                     _locationError!,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
 
@@ -452,12 +605,14 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               const SizedBox(height: 30),
 
               // Add Evidence Section
-              Text('Add Evidence',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
+              Text(
+                'Add Evidence',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 10),
               _buildEvidenceSection(),
               const SizedBox(height: 30),
@@ -487,9 +642,14 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.1), // Slightly transparent primary color
+        color: primaryColor.withOpacity(
+          0.1,
+        ), // Slightly transparent primary color
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: secondaryColor.withOpacity(0.3), width: 1), // Subtle border
+        border: Border.all(
+          color: secondaryColor.withOpacity(0.3),
+          width: 1,
+        ), // Subtle border
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2), // Darker shadow for depth
@@ -505,11 +665,21 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
         decoration: InputDecoration(
           labelText: labelText,
           hintText: hintText,
-          hintStyle: TextStyle(color: textColor.withOpacity(0.6)), // Lighter hint text
-          labelStyle: const TextStyle(color: secondaryColor), // Accent color for label
-          prefixIcon: icon != null ? Icon(icon, color: accentColor) : null, // Accent color for icon
+          hintStyle: TextStyle(
+            color: textColor.withOpacity(0.6),
+          ), // Lighter hint text
+          labelStyle: const TextStyle(
+            color: secondaryColor,
+          ), // Accent color for label
+          prefixIcon:
+              icon != null
+                  ? Icon(icon, color: accentColor)
+                  : null, // Accent color for icon
           border: InputBorder.none, // Remove default border
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
           floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
         validator: validator,
@@ -544,7 +714,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
         onChanged: onChanged,
         validator: validator,
         dropdownColor: backgroundColor, // Background for dropdown options
-        style: const TextStyle(color: textColor, fontSize: 16), // Style for the selected value displayed in the field
+        style: const TextStyle(
+          color: textColor,
+          fontSize: 16,
+        ), // Style for the selected value displayed in the field
         icon: const Icon(Icons.arrow_drop_down, color: accentColor),
         decoration: InputDecoration(
           labelText: labelText,
@@ -558,8 +731,13 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
             return Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                item.value!.replaceFirst(item.value![0], item.value![0].toUpperCase()),
-                style: const TextStyle(color: textColor), // Use textColor for dropdown items
+                item.value!.replaceFirst(
+                  item.value![0],
+                  item.value![0].toUpperCase(),
+                ),
+                style: const TextStyle(
+                  color: textColor,
+                ), // Use textColor for dropdown items
               ),
             );
           }).toList();
@@ -590,7 +768,11 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
             children: [
               const Text(
                 'Report Anonymously',
-                style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Switch(
                 value: _isAnonymous,
@@ -611,7 +793,11 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
             children: [
               const Text(
                 'Make Public Post',
-                style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Switch(
                 value: isAPublicPost,
@@ -631,7 +817,11 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(
                 'Your report will be visible to other users in public feeds.',
-                style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 12, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: textColor.withOpacity(0.7),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           if (!isAPublicPost)
@@ -639,7 +829,11 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(
                 'Your report will only be visible to authorities and administrators.',
-                style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 12, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: textColor.withOpacity(0.7),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
         ],
@@ -751,10 +945,7 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(color: textColor, fontSize: 13),
-        ),
+        Text(label, style: const TextStyle(color: textColor, fontSize: 13)),
       ],
     );
   }
@@ -856,7 +1047,8 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
       context: context,
       backgroundColor: Colors.transparent, // Make background transparent
       builder: (BuildContext context) {
-        return ClipRRect( // Use ClipRRect with BackdropFilter for a stunning effect
+        return ClipRRect(
+          // Use ClipRRect with BackdropFilter for a stunning effect
           borderRadius: const BorderRadius.vertical(top: Radius.circular(25.0)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), // Apply blur
@@ -864,9 +1056,14 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: primaryColor.withOpacity(0.3), // Semi-transparent color
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(25.0)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(25.0),
+                ),
                 border: Border(
-                  top: BorderSide(color: secondaryColor.withOpacity(0.5), width: 1),
+                  top: BorderSide(
+                    color: secondaryColor.withOpacity(0.5),
+                    width: 1,
+                  ),
                 ),
               ),
               child: Column(
@@ -883,7 +1080,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
                   const SizedBox(height: 20),
                   ListTile(
                     leading: Icon(Icons.camera_alt, color: accentColor),
-                    title: Text('Camera', style: TextStyle(color: textColor, fontSize: 18)),
+                    title: Text(
+                      'Camera',
+                      style: TextStyle(color: textColor, fontSize: 18),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _pickMedia(ImageSource.camera);
@@ -891,7 +1091,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
                   ),
                   ListTile(
                     leading: Icon(Icons.photo_library, color: accentColor),
-                    title: Text('Gallery', style: TextStyle(color: textColor, fontSize: 18)),
+                    title: Text(
+                      'Gallery',
+                      style: TextStyle(color: textColor, fontSize: 18),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _pickMedia(ImageSource.gallery);
@@ -920,9 +1123,14 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: primaryColor.withOpacity(0.3),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(25.0)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(25.0),
+                ),
                 border: Border(
-                  top: BorderSide(color: secondaryColor.withOpacity(0.5), width: 1),
+                  top: BorderSide(
+                    color: secondaryColor.withOpacity(0.5),
+                    width: 1,
+                  ),
                 ),
               ),
               child: Column(
@@ -939,7 +1147,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
                   const SizedBox(height: 20),
                   ListTile(
                     leading: Icon(Icons.camera_alt, color: accentColor),
-                    title: Text('Camera', style: TextStyle(color: textColor, fontSize: 18)),
+                    title: Text(
+                      'Camera',
+                      style: TextStyle(color: textColor, fontSize: 18),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _pickMedia(ImageSource.camera, isVideo: true);
@@ -947,7 +1158,10 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
                   ),
                   ListTile(
                     leading: Icon(Icons.video_library, color: accentColor),
-                    title: Text('Gallery', style: TextStyle(color: textColor, fontSize: 18)),
+                    title: Text(
+                      'Gallery',
+                      style: TextStyle(color: textColor, fontSize: 18),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _pickMedia(ImageSource.gallery, isVideo: true);
@@ -963,16 +1177,19 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
     );
   }
 
-
   Widget _buildSubmitButton() {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
-          colors: _isSubmitting
-              ? [primaryColor.withOpacity(0.5), secondaryColor.withOpacity(0.5)]
-              : [primaryColor, secondaryColor],
+          colors:
+              _isSubmitting
+                  ? [
+                    primaryColor.withOpacity(0.5),
+                    secondaryColor.withOpacity(0.5),
+                  ]
+                  : [primaryColor, secondaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -988,7 +1205,9 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
       child: ElevatedButton(
         onPressed: _isSubmitting ? null : _submitReport,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent, // Make button transparent to show container's gradient
+          backgroundColor:
+              Colors
+                  .transparent, // Make button transparent to show container's gradient
           shadowColor: Colors.transparent, // Remove button's default shadow
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(
@@ -996,23 +1215,24 @@ class _ReportCrimePageState extends State<ReportCrimePage> {
           ),
           elevation: 0, // No elevation on the button itself
         ),
-        child: _isSubmitting
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
+        child:
+            _isSubmitting
+                ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                : const Text(
+                  'Submit Report',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: primaryFgColor,
+                  ),
                 ),
-              )
-            : const Text(
-                'Submit Report',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: primaryFgColor,
-                ),
-              ),
       ),
     );
   }
